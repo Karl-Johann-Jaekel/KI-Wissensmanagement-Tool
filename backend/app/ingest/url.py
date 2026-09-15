@@ -2,8 +2,10 @@
 
 import ipaddress
 import logging
+import re
 import socket
-from urllib.parse import urljoin, urlparse
+from collections.abc import Mapping
+from urllib.parse import unquote, urljoin, urlparse
 
 import httpx
 import trafilatura
@@ -16,6 +18,12 @@ log = logging.getLogger(__name__)
 MAX_BYTES = 15 * 1024 * 1024
 MAX_REDIRECTS = 4
 USER_AGENT = "Mozilla/5.0 (compatible; NotebookClone/0.1; +source-import)"
+
+
+BOT_CHALLENGE_ERROR = (
+    "Die Seite blockiert automatisierte Abrufe (Bot-Schutz). "
+    "Bitte die Datei im Browser herunterladen und hier hochladen."
+)
 
 
 def fetch_url(url: str, timeout: float = 20.0) -> ParsedDocument:
@@ -50,6 +58,8 @@ def _safe_get(url: str, timeout: float) -> tuple[str, bytes, str]:
                         raise ParseError("Weiterleitung ohne Ziel.")
                     current = urljoin(current, location)
                     continue
+                if is_bot_challenge(response.status_code, response.headers):
+                    raise ParseError(BOT_CHALLENGE_ERROR)
                 if response.status_code >= 400:
                     raise ParseError(f"Die Seite antwortete mit HTTP {response.status_code}.")
                 content_type = response.headers.get("content-type", "").lower()
@@ -82,7 +92,20 @@ def assert_public_http_url(url: str) -> None:
             raise ParseError("Die URL zeigt auf eine interne Adresse und ist nicht erlaubt.")
 
 
+def is_bot_challenge(status_code: int, headers: Mapping[str, str]) -> bool:
+    """AWS WAF (e.g. EUR-Lex) answers 202 with an empty challenge; Cloudflare sets cf-mitigated."""
+    lowered = {k.lower(): v.lower() for k, v in headers.items()}
+    return (
+        lowered.get("x-amzn-waf-action") in ("challenge", "captcha")
+        or lowered.get("cf-mitigated") == "challenge"
+        or (status_code == 202 and lowered.get("content-length") == "0")
+    )
+
+
 def _title_from_url(url: str) -> str:
+    """`…/DSK_OH_RAG.pdf` → `DSK OH RAG`; falls back to the host name."""
     parsed = urlparse(url)
-    last = parsed.path.rstrip("/").rsplit("/", 1)[-1]
-    return f"{parsed.hostname}{'/' + last if last else ''}"
+    last = unquote(parsed.path.rstrip("/").rsplit("/", 1)[-1])
+    stem = re.sub(r"\.(pdf|html?|php|aspx?)$", "", last, flags=re.IGNORECASE)
+    readable = re.sub(r"[_\-+]+", " ", stem).strip()
+    return readable if len(readable) >= 3 else (parsed.hostname or url)

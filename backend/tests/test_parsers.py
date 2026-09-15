@@ -1,7 +1,7 @@
 import pytest
 
 from app.ingest.parsers import ParseError, parse_upload, reflow_pdf_text
-from app.ingest.url import assert_public_http_url
+from app.ingest.url import assert_public_http_url, is_bot_challenge
 from tests.pdf_factory import make_pdf
 
 
@@ -37,6 +37,41 @@ def test_pdf_keeps_page_numbers_and_metadata_title() -> None:
     assert doc.page_count == 3
     assert [s.page for s in doc.segments] == [1, 3]  # empty page skipped
     assert "Paragraph 42" in doc.segments[1].text
+
+
+@pytest.mark.parametrize(
+    ("metadata_title", "expected"),
+    [
+        ("L_202401689DE.000101.fmx.xml", "upload"),  # file name, not a title
+        ("Microsoft Word - Entwurf v3", "upload"),
+        ("Bericht", "upload"),  # single word is too weak
+        ("Orientierungshilfe KI und Datenschutz", "Orientierungshilfe KI und Datenschutz"),
+    ],
+)
+def test_pdf_metadata_title_is_used_only_when_plausible(metadata_title: str, expected: str) -> None:
+    doc = parse_upload("upload.pdf", make_pdf([["Inhalt"]], title=metadata_title))
+    assert doc.title == expected
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        ("https://example.org/media/oh/DSK_OH_RAG.pdf", "DSK OH RAG"),
+        ("https://example.org/a/eu-dsgvo-mustervertrag.pdf", "eu dsgvo mustervertrag"),
+        ("https://example.org/", "example.org"),
+    ],
+)
+def test_title_from_url(url: str, expected: str) -> None:
+    from app.ingest.url import _title_from_url
+
+    assert _title_from_url(url) == expected
+
+
+def test_bot_challenge_detection() -> None:
+    assert is_bot_challenge(202, {"x-amzn-waf-action": "challenge"})  # EUR-Lex
+    assert is_bot_challenge(403, {"cf-mitigated": "challenge"})  # Cloudflare
+    assert is_bot_challenge(202, {"Content-Length": "0"})
+    assert not is_bot_challenge(200, {"content-type": "text/html"})
 
 
 def test_pdf_without_text_is_rejected() -> None:

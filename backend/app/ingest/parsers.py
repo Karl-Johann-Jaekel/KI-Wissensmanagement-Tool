@@ -76,11 +76,19 @@ def parse_pdf(data: bytes, fallback_title: str) -> ParsedDocument:
             "Im PDF wurde kein Text gefunden. Gescannte PDFs (nur Bilder) werden nicht unterstützt."
         )
 
-    title = fallback_title
-    metadata_title = (reader.metadata.title if reader.metadata else None) or ""
-    if len(metadata_title.strip()) > 3:
-        title = metadata_title.strip()
+    metadata_title = ((reader.metadata.title if reader.metadata else None) or "").strip()
+    title = metadata_title if looks_like_title(metadata_title) else fallback_title
     return ParsedDocument(title=title[:500], segments=segments, page_count=len(pages))
+
+
+def looks_like_title(value: str) -> bool:
+    """PDF metadata titles are often file names ("L_202401689DE.000101.fmx.xml") or tool noise."""
+    return (
+        len(value) >= 5
+        and " " in value
+        and not re.search(r"\.[A-Za-z]{2,4}$", value)
+        and not value.lower().startswith(("microsoft word", "untitled", "unbenannt"))
+    )
 
 
 def reflow_pdf_text(raw: str) -> str:
