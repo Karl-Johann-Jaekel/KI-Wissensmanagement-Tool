@@ -9,3 +9,4 @@ alembic==1.20.0
 httpx==0.28.1
 pypdf==6.18.1
 trafilatura==2.2.0
+fastembed==0.8.0
