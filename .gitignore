@@ -16,6 +16,9 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# E2E artefacts (screenshots, downloaded test PDF)
+e2e/out/
+
 # Editors / OS
 .vscode/
 .idea/

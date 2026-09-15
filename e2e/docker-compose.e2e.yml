@@ -1,0 +1,36 @@
+# Browser E2E against the local stack with a mock LLM. See README → "Browser-E2E".
+# Paths are relative to the repo root (the first compose file's directory).
+services:
+  mock-llm:
+    image: python:3.12-slim
+    command: ["python", "/e2e/mock_llm.py"]
+    volumes:
+      - ./e2e:/e2e:ro
+
+  backend:
+    environment:
+      ACCESS_KEY: e2e-access-key-123
+      LLM_PROVIDER: mistral
+      MISTRAL_API_KEY: mock
+      MISTRAL_BASE_URL: http://mock-llm:9000/v1
+    depends_on:
+      mock-llm:
+        condition: service_started
+
+  e2e:
+    image: mcr.microsoft.com/playwright/python:v1.55.0-noble
+    profiles: ["e2e"]
+    working_dir: /e2e
+    command:
+      - sh
+      - -c
+      - pip install -q --root-user-action=ignore --disable-pip-version-check playwright==1.55.0 && python ui_e2e.py
+    environment:
+      E2E_BASE_URL: http://frontend
+      E2E_ACCESS_KEY: e2e-access-key-123
+      E2E_IMPORT_URL: ${E2E_IMPORT_URL:-}
+    volumes:
+      - ./e2e:/e2e
+    depends_on:
+      frontend:
+        condition: service_started
