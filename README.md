@@ -53,6 +53,7 @@ entfernt erfundene Nummern, nummeriert neu und liefert Chunk-IDs für den Zitat-
 | Hybrid Retrieval statt reiner Vektorsuche | [ADR-04](docs/adr/004-hybrid-retrieval-rrf.md) |
 | Zitate als validierte Passagen-Nummern | [ADR-05](docs/adr/005-validated-citations.md) |
 | Lokale Embeddings, EU-LLM mit Provider-Switch | [ADR-02](docs/adr/002-local-embeddings.md), [ADR-03](docs/adr/003-llm-provider-mistral.md) |
+| Fallback auf zweites Mistral-Modell statt Ollama (mit Messung) | [ADR-09](docs/adr/009-llm-fallback.md) |
 
 ## Lokal starten
 
@@ -79,6 +80,7 @@ Alle Werte in [.env.example](.env.example). Die wichtigsten:
 | `ACCESS_KEY` | gemeinsamer Zugangsschlüssel, mindestens 12 Zeichen |
 | `LLM_PROVIDER` | `mistral` (Standard) oder `ollama` |
 | `MISTRAL_API_KEY`, `MISTRAL_MODEL` | La Plateforme, Standard `ministral-14b-latest` (Free-Tier-Kontingent ist pro Modell, siehe ADR-03) |
+| `MISTRAL_FALLBACK_MODEL` | springt ein, wenn das Hauptmodell limitiert ist; Standard `ministral-8b-latest`, leer = aus ([ADR-09](docs/adr/009-llm-fallback.md)) |
 | `FRONTEND_PORT` | Host-Port des Frontends, nur an `127.0.0.1` gebunden |
 | `CHUNK_MAX_CHARS`, `RETRIEVAL_TOP_K` | Chunk-Größe und Anzahl Passagen pro Antwort |
 

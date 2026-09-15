@@ -3,7 +3,14 @@ import json
 import httpx
 import pytest
 
-from app.llm.provider import LLMError, MistralProvider, OllamaProvider
+from app.config import Settings
+from app.llm.provider import (
+    FallbackProvider,
+    LLMError,
+    MistralProvider,
+    OllamaProvider,
+    build_llm,
+)
 
 
 def _mistral(handler, sleeps: list[float] | None = None) -> MistralProvider:  # type: ignore[no-untyped-def]
@@ -80,6 +87,58 @@ def test_missing_mistral_key_fails_fast() -> None:
     provider = MistralProvider(api_key="", model="m")
     with pytest.raises(LLMError, match="MISTRAL_API_KEY"):
         provider.complete([{"role": "user", "content": "x"}])
+
+
+class _Scripted:
+    def __init__(self, result: str | LLMError) -> None:
+        self.result = result
+        self.calls = 0
+
+    def complete(self, messages, *, json_mode=False, max_tokens=None):  # type: ignore[no-untyped-def]
+        self.calls += 1
+        if isinstance(self.result, LLMError):
+            raise self.result
+        return self.result
+
+
+def test_fallback_takes_over_when_primary_fails() -> None:
+    primary, fallback = _Scripted(LLMError("rate limit")), _Scripted("aus 8B")
+    provider = FallbackProvider([("14b", primary), ("8b", fallback)])
+    assert provider.complete([{"role": "user", "content": "x"}], json_mode=True) == "aus 8B"
+    assert (primary.calls, fallback.calls) == (1, 1)
+
+
+def test_fallback_is_not_called_when_primary_succeeds() -> None:
+    primary, fallback = _Scripted("aus 14B"), _Scripted("aus 8B")
+    FallbackProvider([("14b", primary), ("8b", fallback)]).complete([])
+    assert fallback.calls == 0
+
+
+def test_fallback_raises_last_error_when_all_fail() -> None:
+    provider = FallbackProvider(
+        [("14b", _Scripted(LLMError("erstes"))), ("8b", _Scripted(LLMError("zweites")))]
+    )
+    with pytest.raises(LLMError, match="zweites"):
+        provider.complete([])
+
+
+def _settings(**overrides: object) -> Settings:
+    base = {"database_url": "postgresql+psycopg://x", "access_key": "a" * 12}
+    return Settings(**{**base, **overrides})  # type: ignore[arg-type]
+
+
+def test_build_llm_chains_primary_with_short_retries_and_fallback() -> None:
+    llm = build_llm(_settings(mistral_model="ministral-14b-latest"))
+    assert isinstance(llm, FallbackProvider)
+    (primary_name, primary), (fallback_name, fallback) = llm._providers
+    assert (primary_name, fallback_name) == ("ministral-14b-latest", "ministral-8b-latest")
+    assert isinstance(primary, MistralProvider) and primary.max_attempts == 2
+    assert isinstance(fallback, MistralProvider) and fallback.max_attempts == 4
+
+
+def test_build_llm_without_fallback_or_with_ollama() -> None:
+    assert isinstance(build_llm(_settings(mistral_fallback_model="")), MistralProvider)
+    assert isinstance(build_llm(_settings(llm_provider="ollama")), OllamaProvider)
 
 
 def test_ollama_uses_chat_endpoint_with_json_format() -> None:

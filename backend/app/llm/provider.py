@@ -8,7 +8,7 @@ from typing import Protocol, TypedDict
 
 import httpx
 
-from app.config import get_settings
+from app.config import Settings, get_settings
 
 log = logging.getLogger(__name__)
 
@@ -35,15 +35,17 @@ class LLMProvider(Protocol):
 
 
 class _RetryingHttpProvider:
-    max_attempts = 4
-
     def __init__(
         self,
         client: httpx.Client,
         sleep: Callable[[float], None] = time.sleep,
+        max_attempts: int = 4,
+        max_delay: float = 20.0,
     ) -> None:
         self._client = client
         self._sleep = sleep
+        self.max_attempts = max_attempts
+        self._max_delay = max_delay
 
     def _post(self, path: str, payload: dict[str, object]) -> dict[str, object]:
         last_error = "unknown error"
@@ -71,7 +73,7 @@ class _RetryingHttpProvider:
                     raise LLMError(f"Das Sprachmodell hat die Anfrage abgelehnt ({last_error}).")
                 delay = _retry_after(response) or float(2 ** (attempt - 1))
             if attempt < self.max_attempts:
-                delay = min(delay, 20.0)
+                delay = min(delay, self._max_delay)
                 log.warning("LLM call failed (%s), retry %d in %.1fs", last_error, attempt, delay)
                 self._sleep(delay)
         raise LLMError(
@@ -90,6 +92,8 @@ class MistralProvider(_RetryingHttpProvider):
         timeout: float = 90.0,
         transport: httpx.BaseTransport | None = None,
         sleep: Callable[[float], None] = time.sleep,
+        max_attempts: int = 4,
+        max_delay: float = 20.0,
     ) -> None:
         self._has_key = bool(api_key)
         client = httpx.Client(
@@ -98,8 +102,8 @@ class MistralProvider(_RetryingHttpProvider):
             headers={"Authorization": f"Bearer {api_key}"},
             transport=transport,
         )
-        super().__init__(client, sleep)
-        self._model = model
+        super().__init__(client, sleep, max_attempts, max_delay)
+        self.model = model
         self._temperature = temperature
 
     def complete(
@@ -113,7 +117,7 @@ class MistralProvider(_RetryingHttpProvider):
             # checked per call, so ingestion without a key still stores chunks
             raise LLMError("MISTRAL_API_KEY ist nicht gesetzt.")
         payload: dict[str, object] = {
-            "model": self._model,
+            "model": self.model,
             "messages": messages,
             "temperature": self._temperature,
         }
@@ -178,17 +182,61 @@ def _retry_after(response: httpx.Response) -> float | None:
         return None
 
 
-@lru_cache
-def get_llm() -> LLMProvider:
-    settings = get_settings()
+class FallbackProvider:
+    """Try providers in order (ADR-09); the next one takes over when one gives up."""
+
+    def __init__(self, providers: list[tuple[str, LLMProvider]]) -> None:
+        if not providers:
+            raise ValueError("at least one provider required")
+        self._providers = providers
+
+    def complete(
+        self,
+        messages: list[ChatMessage],
+        *,
+        json_mode: bool = False,
+        max_tokens: int | None = None,
+    ) -> str:
+        last_error: LLMError | None = None
+        for name, provider in self._providers:
+            try:
+                return provider.complete(messages, json_mode=json_mode, max_tokens=max_tokens)
+            except LLMError as exc:
+                log.warning("LLM %s failed (%s), falling back", name, exc)
+                last_error = exc
+        assert last_error is not None
+        raise last_error
+
+
+def build_llm(settings: Settings) -> LLMProvider:
     if settings.llm_provider == "ollama":
         return OllamaProvider(
             settings.ollama_base_url, settings.ollama_model, settings.llm_temperature
         )
-    return MistralProvider(
-        api_key=settings.mistral_api_key,
-        model=settings.mistral_model,
-        base_url=settings.mistral_base_url,
-        temperature=settings.llm_temperature,
-        timeout=settings.llm_timeout_seconds,
+
+    def mistral(model: str, max_attempts: int = 4, max_delay: float = 20.0) -> MistralProvider:
+        return MistralProvider(
+            api_key=settings.mistral_api_key,
+            model=model,
+            base_url=settings.mistral_base_url,
+            temperature=settings.llm_temperature,
+            timeout=settings.llm_timeout_seconds,
+            max_attempts=max_attempts,
+            max_delay=max_delay,
+        )
+
+    fallback_model = settings.mistral_fallback_model.strip()
+    if not fallback_model or fallback_model == settings.mistral_model:
+        return mistral(settings.mistral_model)
+    # With a fallback available, give up on the primary quickly instead of waiting for backoff.
+    return FallbackProvider(
+        [
+            (settings.mistral_model, mistral(settings.mistral_model, max_attempts=2, max_delay=3)),
+            (fallback_model, mistral(fallback_model)),
+        ]
     )
+
+
+@lru_cache
+def get_llm() -> LLMProvider:
+    return build_llm(get_settings())
