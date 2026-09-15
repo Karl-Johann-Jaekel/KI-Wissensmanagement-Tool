@@ -11,6 +11,7 @@ type Block =
   | { kind: 'ul'; items: string[] }
   | { kind: 'ol'; items: string[] }
 
+const RULE = /^\s*([-*_])\1{2,}\s*$/
 const BULLET = /^\s*[-*•]\s+(.*)$/
 const NUMBERED = /^\s*\d+[.)]\s+(.*)$/
 const INLINE = /(\*\*[^*]+\*\*|\[\d+\])/g
@@ -21,7 +22,9 @@ function parseBlocks(text: string): Block[] {
     const bullet = BULLET.exec(line)
     const numbered = bullet ? null : NUMBERED.exec(line)
     const last = blocks.at(-1)
-    if (bullet?.[1] !== undefined) {
+    if (RULE.test(line)) {
+      blocks.push({ kind: 'p', lines: [] }) // horizontal rules only separate paragraphs
+    } else if (bullet?.[1] !== undefined) {
       if (last?.kind === 'ul') last.items.push(bullet[1])
       else blocks.push({ kind: 'ul', items: [bullet[1]] })
     } else if (numbered?.[1] !== undefined) {
