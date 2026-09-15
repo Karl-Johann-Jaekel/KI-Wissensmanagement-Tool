@@ -5,7 +5,7 @@ Antworte ausschließlich mit einem JSON-Objekt dieser Form:
 {"summary": "...", "key_topics": ["...", "..."], "suggested_questions": ["...", "...", "..."]}
 
 Regeln:
-- Schreibe in der Sprache des Dokuments.
+- Schreibe in der Sprache des Dokuments, als reinen Text ohne Markdown (keine Sternchen).
 - summary: 3–5 Sätze, sachlich, nur Inhalte aus dem Dokument.
 - key_topics: 3–5 Kernthemen, je höchstens 4 Wörter.
 - suggested_questions: genau 3 kurze, konkrete Fragen (je höchstens 12 Wörter), die das Dokument

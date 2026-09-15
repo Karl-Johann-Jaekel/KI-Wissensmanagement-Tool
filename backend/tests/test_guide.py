@@ -38,6 +38,18 @@ def test_parse_guide_tolerates_code_fences_and_trims_lists() -> None:
     assert guide.suggested_questions == []
 
 
+def test_parse_guide_strips_markdown_emphasis() -> None:
+    # observed with ministral-14b despite the plain-text instruction
+    raw = (
+        '{"summary": "Der **Transformer** nutzt `Attention`.", '
+        '"key_topics": ["**BLEU**"], "suggested_questions": ["Was ist __RRF__?"]}'
+    )
+    guide = parse_guide(raw)
+    assert guide.summary == "Der Transformer nutzt Attention."
+    assert guide.key_topics == ["BLEU"]
+    assert guide.suggested_questions == ["Was ist RRF?"]
+
+
 def test_parse_guide_rejects_garbage() -> None:
     with pytest.raises(LLMError):
         parse_guide("Hier ist dein Guide: ...")

@@ -16,6 +16,12 @@ DIRECT_MAX_CHUNKS = 8
 GROUP_TARGET_CHARS = 24_000
 MAX_GROUPS = 8
 DIRECT_MAX_CHARS = 60_000
+_EMPHASIS = re.compile(r"\*\*|__|`")
+
+
+def _plain(value: object) -> str:
+    """The guide is shown as plain text; models still like to add Markdown emphasis."""
+    return _EMPHASIS.sub("", str(value)).strip()
 
 
 class Guide(BaseModel):
@@ -23,12 +29,17 @@ class Guide(BaseModel):
     key_topics: list[str] = Field(default_factory=list)
     suggested_questions: list[str] = Field(default_factory=list)
 
+    @field_validator("summary", mode="before")
+    @classmethod
+    def _clean_summary(cls, value: object) -> str:
+        return _plain(value)
+
     @field_validator("key_topics", "suggested_questions", mode="before")
     @classmethod
     def _clean_list(cls, value: object) -> list[str]:
         if not isinstance(value, list):
             return []
-        return [str(v).strip() for v in value if str(v).strip()]
+        return [_plain(v) for v in value if _plain(v)]
 
 
 def build_guide(llm: LLMProvider, title: str, chunks: list[str]) -> Guide:
