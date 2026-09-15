@@ -1,0 +1,13 @@
+# Local development overrides. Picked up automatically by `docker compose up`.
+# Production deploys run: docker compose -f docker-compose.yml up -d
+services:
+  backend:
+    build:
+      target: dev
+    command: ["sh", "/app/entrypoint.sh", "--reload"]
+    environment:
+      WATCHFILES_FORCE_POLLING: "true"
+    ports:
+      - "127.0.0.1:${BACKEND_PORT}:8000"
+    volumes:
+      - ./backend:/app
