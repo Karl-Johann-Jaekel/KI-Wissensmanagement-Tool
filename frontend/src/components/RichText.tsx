@@ -101,7 +101,7 @@ function CitationChip({
       onClick={() => onClick?.(citation)}
       title={`${label}\n\n${citation.snippet}`}
       aria-label={`Quelle ${citation.n}: ${label}`}
-      className="mx-0.5 inline-flex h-5 min-w-5 -translate-y-px items-center justify-center rounded-full bg-accent-soft px-1.5 align-middle text-[11px] font-semibold text-accent transition-colors hover:bg-accent hover:text-accent-fg"
+      className="ml-1 inline-flex h-5 min-w-5 -translate-y-px items-center justify-center rounded-full bg-accent-soft px-1.5 align-middle text-[11px] font-semibold text-accent transition-colors hover:bg-accent hover:text-accent-fg"
     >
       {citation.n}
     </button>

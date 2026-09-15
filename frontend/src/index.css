@@ -85,5 +85,5 @@ body {
   @apply flex min-h-0 flex-col rounded-2xl border border-line bg-surface;
 }
 @utility panel-header {
-  @apply flex items-center justify-between gap-2 border-b border-line px-4 py-3;
+  @apply flex min-h-14 items-center justify-between gap-2 border-b border-line px-4 py-2;
 }
