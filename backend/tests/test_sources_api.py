@@ -106,6 +106,10 @@ def test_chunk_endpoint_returns_neighbours(client: TestClient, notebook_id: str)
     assert middle["ordinal"] == 1
     assert middle["previous_content"] and middle["next_content"]
     assert middle["source_title"] == "a"
+    # overlap between neighbours is shown only once, inside the cited chunk
+    first_paragraph = middle["content"].split("\n\n")[0]
+    assert not middle["previous_content"].endswith(first_paragraph)
+    assert not middle["content"].endswith(middle["next_content"].split("\n\n")[0])
 
     other = "00000000-0000-0000-0000-000000000000"
     assert client.get(f"/api/sources/{other}/chunks/{chunk_ids[1]}").status_code == 404

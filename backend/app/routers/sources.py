@@ -161,6 +161,8 @@ def get_chunk(source_id: uuid.UUID, chunk_id: uuid.UUID, db: DB) -> ChunkOut:
         )
     ).all()
     neighbours: dict[int, str] = {ordinal: content for ordinal, content in rows}
+    previous = neighbours.get(chunk.ordinal - 1)
+    following = neighbours.get(chunk.ordinal + 1)
     return ChunkOut(
         id=chunk.id,
         source_id=source_id,
@@ -168,6 +170,24 @@ def get_chunk(source_id: uuid.UUID, chunk_id: uuid.UUID, db: DB) -> ChunkOut:
         ordinal=chunk.ordinal,
         page=chunk.page,
         content=chunk.content,
-        previous_content=neighbours.get(chunk.ordinal - 1),
-        next_content=neighbours.get(chunk.ordinal + 1),
+        previous_content=_without_overlap(previous, chunk.content, at_end=True),
+        next_content=_without_overlap(following, chunk.content, at_end=False),
     )
+
+
+def _without_overlap(neighbour: str | None, content: str, *, at_end: bool) -> str | None:
+    """Drop the overlap a neighbour shares with the cited chunk, so the viewer shows it once.
+
+    The chunker starts each chunk with the previous chunk's tail followed by a blank line.
+    """
+    if neighbour is None:
+        return None
+    if at_end:
+        head = content.split("\n\n", 1)[0]
+        if head != content and neighbour.endswith(head):
+            neighbour = neighbour[: -len(head)]
+    else:
+        head, _, rest = neighbour.partition("\n\n")
+        if rest and content.endswith(head):
+            neighbour = rest
+    return neighbour.strip() or None

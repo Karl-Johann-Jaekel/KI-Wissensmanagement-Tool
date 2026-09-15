@@ -91,7 +91,7 @@ export function NotesPanel({ notebookId, notes, loadError, onChange, className =
                 >
                   <h3 className="text-sm font-medium break-words">{note.title}</h3>
                   {openId !== note.id && (
-                    <p className="mt-1 line-clamp-2 text-xs text-muted">{note.content}</p>
+                    <p className="mt-1 line-clamp-2 text-xs text-muted">{note.content.replaceAll('**', '')}</p>
                   )}
                   <p className="mt-1 text-[11px] text-muted">{timeFormat.format(new Date(note.updated_at))}</p>
                 </button>
