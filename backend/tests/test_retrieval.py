@@ -3,9 +3,10 @@ import uuid
 from fastapi.testclient import TestClient
 
 from app.db import get_sessionmaker
+from app.models import Chunk
 from app.retrieval.rrf import reciprocal_rank_fusion
-from app.retrieval.search import hybrid_search, text_ranking
-from app.retrieval.text_query import build_or_tsquery
+from app.retrieval.search import hybrid_search, reference_ranking, text_ranking
+from app.retrieval.text_query import build_or_tsquery, extract_references
 from tests.fakes import FakeEmbedder
 
 
@@ -18,6 +19,26 @@ def test_rrf_rewards_items_ranked_high_in_both_lists() -> None:
 def test_rrf_limit_and_determinism() -> None:
     assert reciprocal_rank_fusion([["x", "y"], []], limit=1) == ["x"]
     assert reciprocal_rank_fusion([]) == []
+
+
+def test_rrf_weights_favour_a_ranking() -> None:
+    assert reciprocal_rank_fusion([["a"], ["b"]], weights=[1.0, 2.0]) == ["b", "a"]
+
+
+def test_references_are_extracted_from_questions() -> None:
+    labels = [r.label for r in extract_references("Was regeln Art. 5 und Artikel 50 sowie § 42a?")]
+    assert labels == ["Art. 5", "Artikel 50", "§ 42a"]
+    assert [r.label for r in extract_references("Was steht in Anhang III?")] == ["Anhang III"]
+    assert extract_references("Welche Pflichten gelten für Anbieter?") == []
+
+
+def test_reference_heading_is_distinguished_from_cross_reference() -> None:
+    (article_50,) = extract_references("Was regelt Artikel 50?")
+    assert article_50.heading.search("KAPITEL IV Artikel 50 Transparenzpflichten für Anbieter")
+    assert not article_50.heading.search("gemäß Artikel 50 Absatz 2 der Verordnung")
+    assert not article_50.heading.search("Pflichten gemäß Artikel 50; e) weitere")
+    (article_5,) = extract_references("Artikel 5?")
+    assert not article_5.heading.search("Artikel 50 Transparenzpflichten")
 
 
 def test_tsquery_drops_stopwords_and_sanitizes() -> None:
@@ -53,6 +74,42 @@ def test_full_text_finds_exact_rare_term(client: TestClient, notebook_id: str) -
     assert len(ids) == 1
     assert top[0].chunk_id == ids[0]
     assert "XJ4711" in top[0].content
+
+
+def test_article_question_finds_defining_chunk_and_its_continuation(
+    client: TestClient, notebook_id: str
+) -> None:
+    law = "\n\n".join(
+        [
+            FILLER,
+            "Die Behörde prüft die Transparenzpflichten gemäß Artikel 50 Absatz 2 jährlich.",
+            FILLER,
+            "KAPITEL IV Artikel 50 Transparenzpflichten für Anbieter und Betreiber bestimmter "
+            "KI-Systeme.",
+            "(1) Anbieter stellen sicher, dass Personen informiert werden, wenn sie mit einem "
+            "KI-System interagieren. " * 12,
+            FILLER,
+            "Artikel 5 Verbotene Praktiken im KI-Bereich sind unzulässig.",
+        ]
+    )
+    _upload(client, notebook_id, "verordnung.txt", law)
+    question = "Was regelt Artikel 50?"
+    with get_sessionmaker()() as db:
+        ranked = reference_ranking(db, uuid.UUID(notebook_id), None, question, 20)
+        top = hybrid_search(
+            db,
+            notebook_id=uuid.UUID(notebook_id),
+            source_ids=None,
+            question=question,
+            query_vector=FakeEmbedder().embed_query(question),
+        )
+        contents = {c.id: c.content for c in db.query(Chunk).all()}
+
+    assert "Artikel 50 Transparenzpflichten" in contents[ranked[0]]
+    assert "(1) Anbieter stellen sicher" in contents[ranked[1]]  # continuation of the article
+    assert any("Absatz 2 jährlich" in contents[chunk_id] for chunk_id in ranked[2:])
+    assert not any("Artikel 5 Verbotene" in contents[chunk_id] for chunk_id in ranked)
+    assert top[0].chunk_id == ranked[0]
 
 
 def test_search_is_scoped_to_notebook_and_selected_sources(

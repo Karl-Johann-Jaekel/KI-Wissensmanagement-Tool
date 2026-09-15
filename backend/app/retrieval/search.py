@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Chunk, Source
 from app.retrieval.rrf import reciprocal_rank_fusion
-from app.retrieval.text_query import build_or_tsquery
+from app.retrieval.text_query import build_or_tsquery, extract_references
 
 
 @dataclass(frozen=True)
@@ -34,7 +34,10 @@ def hybrid_search(
 ) -> list[RetrievedChunk]:
     vector_ids = vector_ranking(db, notebook_id, source_ids, query_vector, candidates)
     text_ids = text_ranking(db, notebook_id, source_ids, question, candidates)
-    fused = reciprocal_rank_fusion([vector_ids, text_ids], limit=top_k)
+    reference_ids = reference_ranking(db, notebook_id, source_ids, question, candidates)
+    fused = reciprocal_rank_fusion(
+        [vector_ids, text_ids, reference_ids], weights=[1.0, 1.0, 2.0], limit=top_k
+    )
     if not fused:
         return []
 
@@ -87,6 +90,41 @@ def text_ranking(
         .limit(limit)
     ).all()
     return [row[0] for row in rows]
+
+
+def reference_ranking(
+    db: Session,
+    notebook_id: uuid.UUID,
+    source_ids: list[uuid.UUID] | None,
+    question: str,
+    limit: int,
+) -> list[uuid.UUID]:
+    """Chunks mentioning "Artikel 50" etc.: the defining heading first, then its continuation,
+    then plain cross-references."""
+    ranked: list[uuid.UUID] = []
+    for reference in extract_references(question):
+        rows = db.execute(
+            _scoped(
+                select(Chunk.id, Chunk.source_id, Chunk.ordinal, Chunk.content),
+                notebook_id,
+                source_ids,
+            )
+            .where(Chunk.content.op("~*")(reference.sql_pattern))
+            .order_by(Chunk.source_id, Chunk.ordinal)
+            .limit(50)
+        ).all()
+        headings = [row for row in rows if reference.heading.search(row.content)]
+        for row in headings:
+            ranked.append(row.id)
+            continuation = db.scalar(
+                select(Chunk.id).where(
+                    Chunk.source_id == row.source_id, Chunk.ordinal == row.ordinal + 1
+                )
+            )
+            if continuation is not None:
+                ranked.append(continuation)
+        ranked.extend(row.id for row in rows if row not in headings)
+    return list(dict.fromkeys(ranked))[:limit]
 
 
 def _scoped(

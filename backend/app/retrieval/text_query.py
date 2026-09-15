@@ -1,6 +1,7 @@
-"""Build an OR tsquery from a natural-language question (ADR-04)."""
+"""Build an OR tsquery and detect legal references in a natural-language question (ADR-04)."""
 
 import re
+from dataclasses import dataclass
 
 # Short DE/EN list: the `simple` text search config has no stopword removal, and with OR
 # semantics a single "die"/"the" would otherwise match nearly every chunk.
@@ -37,3 +38,52 @@ def build_or_tsquery(question: str) -> str | None:
         return None
     # tokens are \w-only, so they cannot inject tsquery operators
     return " | ".join(terms[:MAX_TERMS])
+
+
+# "Artikel 50", "Art. 5", "§ 42a", "Anhang III", "Article 12" – numbers matter here, and neither
+# embeddings nor an OR full-text query rank them well.
+_KINDS = {
+    "artikel": r"(?:Artikel|Art\.|Article)",
+    "art.": r"(?:Artikel|Art\.|Article)",
+    "article": r"(?:Artikel|Art\.|Article)",
+    "§": r"(?:§|Paragraph)",
+    "paragraph": r"(?:§|Paragraph)",
+    "anhang": r"(?:Anhang|Annex)",
+    "annex": r"(?:Anhang|Annex)",
+}
+_REFERENCE_IN_QUESTION = re.compile(
+    r"(Artikel|Art\.|Article|§|Paragraph|Anhang|Annex)\s*(\d{1,3}[a-z]?|[IVX]{1,5})(?![\w])",
+    re.IGNORECASE,
+)
+# After a heading like "Artikel 50" comes its title ("Transparenzpflichten …"); a cross-reference
+# continues with "Absatz", a lower-case word or punctuation.
+_NOT_A_TITLE = r"(?:Abs|Absatz|Unterabsatz|UAbs|Buchstabe|Nummer|Nr|Satz|Paragraph)\b"
+
+
+@dataclass(frozen=True)
+class Reference:
+    label: str
+    sql_pattern: str  # PostgreSQL ARE, used with ~* (case-insensitive)
+    heading: re.Pattern[str]
+
+
+def extract_references(question: str) -> list[Reference]:
+    references: list[Reference] = []
+    for kind, number in _REFERENCE_IN_QUESTION.findall(question):
+        kind_pattern = _KINDS[kind.lower()]
+        if number.isalpha() and kind_pattern != _KINDS["anhang"]:
+            continue  # roman numerals only for annexes ("Art. I" is not a reference)
+        num = re.escape(number)
+        label = f"{kind} {number}"
+        if any(r.label.lower() == label.lower() for r in references):
+            continue
+        references.append(
+            Reference(
+                label=label,
+                sql_pattern=rf"{kind_pattern}\s*{num}([^0-9a-z]|$)",
+                heading=re.compile(
+                    rf"(?i:{kind_pattern})\s*(?i:{num})\s+(?!{_NOT_A_TITLE})[A-ZÄÖÜ]"
+                ),
+            )
+        )
+    return references
