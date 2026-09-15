@@ -12,7 +12,8 @@ Lässt man das Modell Quellen frei benennen, erfindet es Titel oder Seitenzahlen
 - Die Top-8-Chunks gehen nummeriert (`[1]` … `[8]`) mit Quelle und Seite in den Prompt.
 - Das Modell zitiert ausschließlich mit `[n]`. Das Backend (`app/citations.py`):
   1. extrahiert alle Marker, auch Varianten wie `[1, 3]` oder `[2][4]`,
-  2. verwirft Nummern, die nicht in der Kandidatenliste stehen,
+  2. verwirft Nummern, die nicht in der Kandidatenliste stehen, sowie Folgen von mehr als drei
+     Belegen an einer Stelle (Modelle hängen sonst alle Passagen an „keine Angaben“),
   3. nummeriert die gültigen in Reihenfolge des ersten Auftretens neu (`[1]`, `[2]`, …),
   4. liefert `citations[]` mit `chunk_id`, `source_id`, Titel, Seite und Snippet.
 - Liefert die Suche keine Passagen, antwortet das Backend ohne LLM-Aufruf mit einem

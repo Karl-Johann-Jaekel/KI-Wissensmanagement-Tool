@@ -59,6 +59,20 @@ def test_group_with_any_invalid_number_is_dropped_entirely() -> None:
     assert [c.n for c in citations] == [1]
 
 
+def test_citation_dump_on_a_single_claim_is_removed() -> None:
+    # observed with ministral-14b on a question the sources cannot answer
+    answer = "Dazu enthalten die Quellen keine Angaben. [1][2][3][4][5][6][7][8]"
+    text, citations = resolve_citations(answer, passages(8))
+    assert text == "Dazu enthalten die Quellen keine Angaben."
+    assert citations == []
+
+
+def test_up_to_three_adjacent_citations_are_kept() -> None:
+    text, citations = resolve_citations("A [1][2] [3]. B [4, 5, 6, 7]. C [2-5].", passages(8))
+    assert text == "A [1][2][3]. B. C."
+    assert [c.n for c in citations] == [1, 2, 3]
+
+
 def test_zero_and_absurd_ranges_are_invalid() -> None:
     text, citations = resolve_citations("Null [0]. Riesig [1-500].", passages(8))
     assert text == "Null. Riesig."

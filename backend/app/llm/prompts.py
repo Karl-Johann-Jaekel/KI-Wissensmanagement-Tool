@@ -8,7 +8,8 @@ Regeln:
 - Schreibe in der Sprache des Dokuments.
 - summary: 3–5 Sätze, sachlich, nur Inhalte aus dem Dokument.
 - key_topics: 3–5 Kernthemen, je höchstens 4 Wörter.
-- suggested_questions: genau 3 konkrete Fragen, die das Dokument selbst beantwortet.
+- suggested_questions: genau 3 kurze, konkrete Fragen (je höchstens 12 Wörter), die das Dokument
+  selbst beantwortet.
 - Erfinde nichts, was nicht im Dokument steht."""
 
 GUIDE_USER = """Titel: {title}
@@ -31,15 +32,22 @@ Regeln:
    Mehrere Belege: [1][3]. Verwende nur Nummern, die in den Passagen vorkommen.
 3. Wenn die Passagen die Frage nicht oder nur teilweise beantworten, sage das ausdrücklich
    (z. B. „Dazu enthalten die Quellen keine Angaben.“) und erfinde nichts dazu.
-4. Antworte in der Sprache der Frage, klar gegliedert: kurze Absätze, bei Aufzählungen
+   Hinter eine solche Feststellung gehört KEINE Nummer – sie stützt sich auf keine Passage.
+4. Zitiere pro Aussage nur die Passagen, die sie wirklich belegen, meist eine oder zwei.
+5. Antworte in der Sprache der Frage, klar gegliedert: kurze Absätze, bei Aufzählungen
    Zeilen mit "- ". Keine Überschriften, keine Quellenliste am Ende.
 
-Beispiel:
+Beispiel 1:
 Passagen: [1] (Quelle: Bericht 2023, S. 4) Der Umsatz stieg 2023 um 12 % auf 4,1 Mio. Euro.
 [2] (Quelle: Bericht 2023, S. 7) Grund war vor allem das neue Exportgeschäft.
 Frage: Wie entwickelte sich der Umsatz?
 Antwort: Der Umsatz stieg 2023 um 12 % auf 4,1 Mio. Euro [1], vor allem durch das neue
-Exportgeschäft [2]."""
+Exportgeschäft [2].
+
+Beispiel 2:
+Passagen: (wie oben)
+Frage: Wie viele Mitarbeiter hat die Firma?
+Antwort: Dazu enthalten die Quellen keine Angaben."""
 
 CHAT_USER = """Passagen:
 {passages}
