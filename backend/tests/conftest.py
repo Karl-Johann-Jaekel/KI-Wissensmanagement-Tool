@@ -8,6 +8,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 
+from tests.fakes import FakeEmbedder, FakeLLM
+
 TEST_ACCESS_KEY = "test-access-key-123"
 
 _base_url = make_url(os.environ["DATABASE_URL"])
@@ -53,9 +55,24 @@ def _clean_tables(_database: None) -> Iterator[None]:
 
 
 @pytest.fixture
-def client() -> Iterator[TestClient]:
+def fake_llm() -> FakeLLM:
+    return FakeLLM()
+
+
+@pytest.fixture
+def client(fake_llm: FakeLLM) -> Iterator[TestClient]:
+    from app.deps import get_embedder, get_llm
     from app.main import app
 
+    app.dependency_overrides[get_embedder] = FakeEmbedder
+    app.dependency_overrides[get_llm] = lambda: fake_llm
     with TestClient(app, headers={"X-Access-Key": TEST_ACCESS_KEY}) as c:
         yield c
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def notebook_id(client: TestClient) -> str:
+    response = client.post("/api/notebooks", json={"title": "Test"})
+    assert response.status_code == 201
+    return str(response.json()["id"])

@@ -5,7 +5,9 @@ from contextlib import asynccontextmanager
 from fastapi import APIRouter, Depends, FastAPI
 from sqlalchemy import text
 
-from app.db import get_engine
+from app.db import get_engine, get_sessionmaker
+from app.ingest.pipeline import recover_interrupted
+from app.routers import notebooks, sources
 from app.security import require_access_key
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
@@ -13,6 +15,8 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(messag
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    with get_sessionmaker()() as db:
+        recover_interrupted(db)
     yield
 
 
@@ -35,6 +39,9 @@ def health() -> dict[str, str]:
 def auth_check() -> dict[str, bool]:
     return {"ok": True}
 
+
+protected.include_router(notebooks.router)
+protected.include_router(sources.router)
 
 app.include_router(public)
 app.include_router(protected)

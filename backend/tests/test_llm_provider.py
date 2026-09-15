@@ -77,8 +77,9 @@ def test_zero_quota_fails_fast_without_retry() -> None:
 
 
 def test_missing_mistral_key_fails_fast() -> None:
-    with pytest.raises(LLMError):
-        MistralProvider(api_key="", model="m")
+    provider = MistralProvider(api_key="", model="m")
+    with pytest.raises(LLMError, match="MISTRAL_API_KEY"):
+        provider.complete([{"role": "user", "content": "x"}])
 
 
 def test_ollama_uses_chat_endpoint_with_json_format() -> None:

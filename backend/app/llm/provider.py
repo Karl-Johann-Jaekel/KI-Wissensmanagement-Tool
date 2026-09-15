@@ -91,8 +91,7 @@ class MistralProvider(_RetryingHttpProvider):
         transport: httpx.BaseTransport | None = None,
         sleep: Callable[[float], None] = time.sleep,
     ) -> None:
-        if not api_key:
-            raise LLMError("MISTRAL_API_KEY ist nicht gesetzt.")
+        self._has_key = bool(api_key)
         client = httpx.Client(
             base_url=base_url,
             timeout=timeout,
@@ -110,6 +109,9 @@ class MistralProvider(_RetryingHttpProvider):
         json_mode: bool = False,
         max_tokens: int | None = None,
     ) -> str:
+        if not self._has_key:
+            # checked per call, so ingestion without a key still stores chunks
+            raise LLMError("MISTRAL_API_KEY ist nicht gesetzt.")
         payload: dict[str, object] = {
             "model": self._model,
             "messages": messages,
