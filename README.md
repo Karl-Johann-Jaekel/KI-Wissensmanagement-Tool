@@ -6,6 +6,10 @@ Aussage mit einem klickbaren Beleg, der die Originalpassage öffnet.
 Entstanden als Bewerbungsaufgabe in einer 3-Tage-Zeitbox. Vorgehen und Status: [plan.md](plan.md),
 Entscheidungen: [docs/adr/](docs/adr/README.md), Arbeit mit AI-Tools: [docs/prompts.md](docs/prompts.md).
 
+![Notebook mit Quellen-Guide, Chat mit Belegen und gespeicherter Notiz](docs/screenshots/notebook.png)
+
+<sub>Echter Durchlauf mit `ministral-14b-latest` und dem Paper „Attention Is All You Need“ (arXiv 1706.03762).</sub>
+
 ## Funktionen
 
 | Bereich | Umfang |
@@ -20,6 +24,10 @@ Entscheidungen: [docs/adr/](docs/adr/README.md), Arbeit mit AI-Tools: [docs/prom
 | Zugang | ein gemeinsamer Access-Key für die Demo-Instanz |
 
 Bewusst nicht enthalten: Audio Overview, Mind Map, YouTube/Audio-Quellen, Multi-User.
+
+| Zitat-Viewer | Dunkelmodus | Mobil |
+|---|---|---|
+| ![Klick auf ein Zitat öffnet die hervorgehobene Passage](docs/screenshots/citation.png) | ![Dunkelmodus](docs/screenshots/dark.png) | <img src="docs/screenshots/mobile.png" alt="Mobile Ansicht mit Tabs" width="220"> |
 
 ## Architektur
 
