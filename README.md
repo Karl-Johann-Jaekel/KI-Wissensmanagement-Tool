@@ -68,6 +68,9 @@ open http://localhost:8080    # Windows: start http://localhost:8080
 Das Frontend fragt nach dem `ACCESS_KEY` aus der `.env`. Ohne gültigen Mistral-Key funktionieren
 Upload, Suche und Zitat-Viewer; Guide und Chat melden den Fehler sichtbar.
 
+Demo-Notebook „KI im Unternehmen: Recht & Verträge“ (KI-Verordnung, DSK-Leitlinie zu RAG,
+KI-Vertragsklauseln, Mustervertrag) anlegen und geprüfte Demo-Fragen: [demo/README.md](demo/README.md).
+
 Frontend-Entwicklung mit Hot-Reload: `cd frontend && npm install && npm run dev` (Vite auf
 Port 5173, `/api` wird an `BACKEND_PORT` weitergeleitet).
 
@@ -119,5 +122,6 @@ backend/app/
   citations.py Parsing und Validierung der [n]-Marker
 frontend/src/  App.tsx, api.ts, components/ (SourcePanel, ChatPanel, NotesPanel, CitationDrawer, …)
 e2e/           Playwright-Test + Mock-LLM
+demo/          Seed-Skript und Demo-Fragen
 docs/adr/      Architekturentscheidungen
 ```
