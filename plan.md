@@ -228,6 +228,6 @@ Vorbereitung: Browser-Tab mit vorindiziertem Demo-Notebook offen, zweiter Tab le
 
 | Phase | Stand |
 |---|---|
-| Tag 1 — Backend-Kern und Ingestion | offen |
+| Tag 1 — Backend-Kern und Ingestion | erledigt: 15-seitiges PDF → 34 Chunks mit Embeddings (~12 s); Tests für Chunker, Parser, Zitat-Parser, Provider, API. Offen: Guide mit echtem Mistral (Workspace-Kontingent war 0 req/min, Fallback greift). Abweichungen: pypdf (ADR-08), Guide-Status separat (Migration 0002), URL-Import als eigener Endpoint `POST /notebooks/{id}/sources/url` |
 | Tag 2 — Chat, Zitate, UI | offen |
 | Tag 3 — Deployment, Abgabe | offen |
