@@ -30,6 +30,10 @@ class UrlSourceCreate(BaseModel):
     url: HttpUrl
 
 
+class SourceUpdate(BaseModel):
+    title: str = Field(min_length=1, max_length=500)
+
+
 class SourceOut(ORMModel):
     id: uuid.UUID
     notebook_id: uuid.UUID

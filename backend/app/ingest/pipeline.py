@@ -33,6 +33,9 @@ def ingest_source(
 ) -> None:
     settings = get_settings()
     with get_sessionmaker()() as db:
+        initial = db.get(Source, source_id)
+        placeholder = initial.title if initial else None
+        db.rollback()  # do not hold a transaction open during the slow load/embed steps
         try:
             document = load()
             drafts = chunk_segments(
@@ -55,7 +58,8 @@ def ingest_source(
                 )
                 for d, v in zip(drafts, vectors, strict=True)
             )
-            source.title = document.title
+            if source.title == placeholder:  # keep a title the user set while processing
+                source.title = document.title
             source.page_count = document.page_count
             source.status = "ready"
             db.commit()

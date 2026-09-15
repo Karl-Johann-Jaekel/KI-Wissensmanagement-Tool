@@ -3,7 +3,17 @@ import { api } from '../api'
 import { errorText } from '../hooks'
 import type { Source } from '../types'
 import { AddSourceDialog } from './AddSourceDialog'
-import { ChevronIcon, FileIcon, LinkIcon, PlusIcon, RefreshIcon, SparkIcon, Spinner, TrashIcon } from './Icons'
+import {
+  ChevronIcon,
+  EditIcon,
+  FileIcon,
+  LinkIcon,
+  PlusIcon,
+  RefreshIcon,
+  SparkIcon,
+  Spinner,
+  TrashIcon,
+} from './Icons'
 
 interface Props {
   notebookId: string
@@ -42,6 +52,16 @@ export function SourcePanel({
     try {
       await api.deleteSource(source.id)
       onSourceRemoved(source.id)
+    } catch (err) {
+      setActionError(errorText(err))
+    }
+  }
+
+  async function rename(source: Source) {
+    const title = window.prompt('Neuer Titel der Quelle', source.title)?.trim()
+    if (!title || title === source.title) return
+    try {
+      onSourceChanged(await api.renameSource(source.id, title))
     } catch (err) {
       setActionError(errorText(err))
     }
@@ -103,6 +123,7 @@ export function SourcePanel({
                 onExpand={() => setExpanded(expanded === source.id ? null : source.id)}
                 onToggle={() => onToggle(source.id)}
                 onRemove={() => void remove(source)}
+                onRename={() => void rename(source)}
                 onRetryGuide={() => void retryGuide(source)}
                 onAsk={onAsk}
               />
@@ -129,11 +150,22 @@ interface ItemProps {
   onExpand: () => void
   onToggle: () => void
   onRemove: () => void
+  onRename: () => void
   onRetryGuide: () => void
   onAsk: (question: string) => void
 }
 
-function SourceItem({ source, selected, expanded, onExpand, onToggle, onRemove, onRetryGuide, onAsk }: ItemProps) {
+function SourceItem({
+  source,
+  selected,
+  expanded,
+  onExpand,
+  onToggle,
+  onRemove,
+  onRename,
+  onRetryGuide,
+  onAsk,
+}: ItemProps) {
   const TypeIcon = source.type === 'url' ? LinkIcon : FileIcon
   const meta = [
     source.type.toUpperCase(),
@@ -237,9 +269,14 @@ function SourceItem({ source, selected, expanded, onExpand, onToggle, onRemove, 
               )}
             </>
           )}
-          <button className="btn-danger -ml-3" onClick={onRemove}>
-            <TrashIcon size={14} /> Quelle entfernen
-          </button>
+          <div className="-ml-3 flex flex-wrap gap-1">
+            <button className="btn-ghost" onClick={onRename}>
+              <EditIcon size={14} /> Umbenennen
+            </button>
+            <button className="btn-danger" onClick={onRemove}>
+              <TrashIcon size={14} /> Quelle entfernen
+            </button>
+          </div>
         </div>
       )}
     </li>

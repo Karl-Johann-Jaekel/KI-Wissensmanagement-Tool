@@ -115,6 +115,40 @@ def test_chunk_endpoint_returns_neighbours(client: TestClient, notebook_id: str)
     assert client.get(f"/api/sources/{other}/chunks/{chunk_ids[1]}").status_code == 404
 
 
+def test_source_can_be_renamed(client: TestClient, notebook_id: str) -> None:
+    _upload(client, notebook_id, "a.txt", LONG_TEXT.encode())
+    source = _only_source(client, notebook_id)
+    response = client.patch(f"/api/sources/{source['id']}", json={"title": "  KI-Verordnung "})
+    assert response.status_code == 200
+    assert _only_source(client, notebook_id)["title"] == "KI-Verordnung"
+    assert client.patch(f"/api/sources/{source['id']}", json={"title": ""}).status_code == 422
+
+
+def test_rename_during_processing_is_not_overwritten(notebook_id: str) -> None:
+    from app.ingest.chunker import Segment
+    from app.ingest.parsers import ParsedDocument
+    from app.ingest.pipeline import ingest_source
+    from tests.fakes import FakeEmbedder
+
+    with get_sessionmaker()() as db:
+        source = Source(notebook_id=notebook_id, title="upload", type="text")
+        db.add(source)
+        db.commit()
+        source_id = source.id
+
+    def load() -> ParsedDocument:
+        with get_sessionmaker()() as db:  # user renames while the file is parsed
+            db.get(Source, source_id).title = "Mein Titel"  # type: ignore[union-attr]
+            db.commit()
+        return ParsedDocument(title="Titel aus Datei", segments=[Segment("Inhalt.")])
+
+    ingest_source(source_id, load, FakeEmbedder(), FakeLLM())
+    with get_sessionmaker()() as db:
+        stored = db.get(Source, source_id)
+        assert stored is not None
+        assert (stored.status, stored.title) == ("ready", "Mein Titel")
+
+
 def test_deleting_source_removes_chunks(client: TestClient, notebook_id: str) -> None:
     _upload(client, notebook_id, "a.txt", LONG_TEXT.encode())
     source = _only_source(client, notebook_id)

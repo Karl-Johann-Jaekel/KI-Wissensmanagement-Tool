@@ -26,7 +26,7 @@ from app.llm.provider import LLMProvider
 from app.models import Chunk, Notebook, Source
 from app.retrieval.embed import Embedder
 from app.routers.common import get_or_404
-from app.schemas import ChunkOut, SourceOut, UrlSourceCreate
+from app.schemas import ChunkOut, SourceOut, SourceUpdate, UrlSourceCreate
 
 router = APIRouter(tags=["sources"])
 DB = Annotated[Session, Depends(get_db)]
@@ -138,6 +138,14 @@ def regenerate_guide(
     source.guide_error = None
     db.commit()
     background.add_task(generate_guide, source.id, llm)
+    return _to_out(db, [source])[0]
+
+
+@router.patch("/sources/{source_id}", response_model=SourceOut)
+def rename_source(source_id: uuid.UUID, payload: SourceUpdate, db: DB) -> SourceOut:
+    source = get_or_404(db, Source, source_id)
+    source.title = payload.title.strip()
+    db.commit()
     return _to_out(db, [source])[0]
 
 

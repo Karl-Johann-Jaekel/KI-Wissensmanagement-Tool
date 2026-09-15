@@ -104,6 +104,8 @@ export const api = {
     request<Source>(`/notebooks/${notebookId}/sources/url`, json('POST', { url })),
   regenerateGuide: (sourceId: string) =>
     request<Source>(`/sources/${sourceId}/guide`, { method: 'POST' }),
+  renameSource: (sourceId: string, title: string) =>
+    request<Source>(`/sources/${sourceId}`, json('PATCH', { title })),
   deleteSource: (sourceId: string) => request<void>(`/sources/${sourceId}`, { method: 'DELETE' }),
   getChunk: (sourceId: string, chunkId: string) =>
     request<ChunkDetail>(`/sources/${sourceId}/chunks/${chunkId}`),

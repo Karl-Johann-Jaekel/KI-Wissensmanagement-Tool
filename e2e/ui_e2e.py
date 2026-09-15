@@ -85,6 +85,11 @@ with sync_playwright() as p:
     expect(page.get_by_text("Das Paper stellt den Transformer vor")).to_be_visible(timeout=30_000)
     page.screenshot(path=OUT / "01-guide.png")
 
+    step("rename source")
+    page.once("dialog", lambda d: d.accept("Transformer-Paper"))
+    page.get_by_role("button", name="Umbenennen").click()
+    expect(page.get_by_role("button", name=re.compile(r"^Transformer-Paper"))).to_be_visible()
+
     step("suggested question → answer with citation chips")
     page.get_by_role("button", name="Wie viele Attention-Heads nutzt das Basismodell?").first.click()
     chips = page.get_by_role("button", name=re.compile(r"^Quelle \d+:"))
