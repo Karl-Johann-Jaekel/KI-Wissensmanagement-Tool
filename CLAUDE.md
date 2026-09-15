@@ -17,9 +17,12 @@ docker compose up -d --build             # Dev: override-Datei mountet Code, Hot
 docker compose exec backend pytest       # Tests (nutzen Fake-LLM + Fake-Embedder, eigene Test-DB)
 docker compose exec backend ruff check . && docker compose exec backend ruff format --check .
 docker compose exec backend mypy app
-cd frontend && npm install && npm run build   # Typecheck + Build
+cd frontend && npm install && npm run build && npm run lint   # Typecheck + Build + oxlint
 cd frontend && npm run dev               # Vite auf :5173, Proxy /api → localhost:${BACKEND_PORT}
 ```
+
+Browser-E2E (Mock-LLM, Playwright): Befehle in [README.md](README.md#browser-e2e). Danach
+`docker compose up -d --remove-orphans`, sonst läuft das Backend mit Test-Key und Mock-LLM weiter.
 
 ## Konventionen
 
@@ -33,6 +36,6 @@ cd frontend && npm run dev               # Vite auf :5173, Proxy /api → localh
 
 ## Definition of Done
 
-- `pytest`, `ruff check`, `ruff format --check`, `mypy app` grün; `npm run build` ohne Fehler
-- Feature einmal real durchgeklickt bzw. per `curl` ausgeführt
+- `pytest`, `ruff check`, `ruff format --check`, `mypy app` grün; `npm run build` + `npm run lint` ohne Befund
+- UI-Änderung: Browser-E2E grün; Backend-Änderung: einmal real per API ausgeführt
 - Status in `plan.md` §11 bei Phasenabschluss aktualisiert

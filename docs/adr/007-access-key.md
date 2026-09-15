@@ -18,7 +18,9 @@ verbrauchen oder beliebige Inhalte hochladen.
 
 - Kein Nutzerkonzept: alle Berechtigten sehen dieselben Notebooks.
 - Schlüsselwechsel = `.env` ändern, Container neu starten.
-- URL-Import prüft zusätzlich, dass Ziel-Hosts nicht auf private/lokale Adressen auflösen (SSRF).
+- URL-Import prüft zusätzlich, dass Ziel-Hosts nicht auf private/lokale Adressen auflösen (SSRF),
+  auch nach jeder Weiterleitung. Restrisiko: DNS-Rebinding zwischen Prüfung und Abruf. Für die
+  Demo hinter Access-Key akzeptiert; im Produktivbetrieb Abruf über einen Egress-Proxy.
 
 ## Verworfene Alternativen
 
