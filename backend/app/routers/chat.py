@@ -1,4 +1,5 @@
 import logging
+import re
 import uuid
 from typing import Annotated
 
@@ -24,7 +25,7 @@ router = APIRouter(tags=["chat"])
 DB = Annotated[Session, Depends(get_db)]
 
 HISTORY_MESSAGES = 6
-HISTORY_CHARS = 1500
+HISTORY_CHARS = 400
 FOLLOW_UP_MAX_WORDS = 6
 
 
@@ -138,13 +139,26 @@ def _build_messages(
 ) -> list[ChatMessage]:
     messages: list[ChatMessage] = [{"role": "system", "content": prompts.CHAT_SYSTEM}]
     for message in history:
-        content = strip_citations(message.content)[:HISTORY_CHARS]
-        messages.append({"role": message.role, "content": content})
+        messages.append({"role": message.role, "content": condense_for_history(message.content)})
     formatted = "\n\n".join(_format_passage(p) for p in passages)
     messages.append(
         {"role": "user", "content": prompts.CHAT_USER.format(passages=formatted, question=question)}
     )
     return messages
+
+
+def condense_for_history(content: str) -> str:
+    """Plain, short version of an earlier message.
+
+    Full earlier answers act as few-shot examples: in tests with ministral-14b, one verbose answer
+    with lists and separator lines made every following answer copy that format.
+    """
+    text = strip_citations(content)
+    text = re.sub(r"\*\*|__|^\s*(?:[-*•]|\d+[.)])\s+|^\s*[-*_]{3,}\s*$", "", text, flags=re.M)
+    text = " ".join(text.split())
+    if len(text) <= HISTORY_CHARS:
+        return text
+    return text[:HISTORY_CHARS].rsplit(" ", 1)[0] + " …"
 
 
 def _format_passage(passage: Passage) -> str:

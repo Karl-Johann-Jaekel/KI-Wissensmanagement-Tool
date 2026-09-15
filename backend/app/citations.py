@@ -9,6 +9,10 @@ _GROUP_PATTERN = r"\[\s*(\d+(?:\s*(?:[,;]|[-–])\s*\d+)*)\s*\]"
 _GROUP = re.compile(_GROUP_PATTERN)
 # adjacent groups such as "[1][2] [3]" belong to the same claim
 _RUN = re.compile(rf"{_GROUP_PATTERN}(?:[ \t]*{_GROUP_PATTERN})*")
+# "[8a]", "[4, lit. e]", "[3, Abs. 2]": the model mixes passage numbers with legal sub-units
+_QUALIFIED = re.compile(
+    r"\[\s*(\d+)\s*(?:[a-z]|,?\s*(?:lit|Abs|Buchst|Nr|UAbs|S)\.?\s*[0-9a-z]{1,4})\s*\]"
+)
 _SPACE_BEFORE_PUNCT = re.compile(r"[ \t]+([.,;:!?)])")
 _MULTI_SPACE = re.compile(r"[ \t]{2,}")
 SNIPPET_CHARS = 220
@@ -65,7 +69,8 @@ def resolve_citations(answer: str, passages: list[Passage]) -> tuple[str, list[R
                 rendered.append(marker)
         return "".join(rendered)
 
-    text = _GROUP.sub(replace, _RUN.sub(drop_dumps, answer))
+    normalized = _QUALIFIED.sub(r"[\1]", answer)
+    text = _GROUP.sub(replace, _RUN.sub(drop_dumps, normalized))
     text = re.sub(r"(?<=\d\])[ \t]+(?=\[\d)", "", text)  # [1] [2] → [1][2]
     text = re.sub(r"(\[\d+\])(?:\1)+", r"\1", text)  # [1][1] → [1]
     text = _SPACE_BEFORE_PUNCT.sub(r"\1", text)

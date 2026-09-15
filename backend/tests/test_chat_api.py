@@ -102,6 +102,20 @@ def test_history_is_sent_without_citation_markers(
     assert messages[2]["content"] == "Sie braucht Licht."
 
 
+def test_history_is_condensed_to_plain_short_text() -> None:
+    from app.routers.chat import HISTORY_CHARS, condense_for_history
+
+    verbose = (
+        "Das Modell nutzt **8 Heads** [1]:\n\n- erster Punkt [2]\n- zweiter Punkt\n\n---\n"
+        "**Keine Angaben zu folgenden Punkten**:\n1. Sanktionen\n" + "Weiterer Text. " * 60
+    )
+    condensed = condense_for_history(verbose)
+    assert condensed.startswith("Das Modell nutzt 8 Heads: erster Punkt zweiter Punkt Keine")
+    assert not any(token in condensed for token in ("**", "---", "\n", "[1]", "- "))
+    assert len(condensed) <= HISTORY_CHARS + 2
+    assert condensed.endswith(" …")
+
+
 def test_clear_messages(client: TestClient, notebook_id: str) -> None:
     _chat(client, notebook_id, question="Hallo?")
     assert client.delete(f"/api/notebooks/{notebook_id}/messages").status_code == 204

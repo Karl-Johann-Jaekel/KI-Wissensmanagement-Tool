@@ -30,12 +30,16 @@ Regeln:
 1. Nutze nur Informationen aus den Passagen. Kein Vorwissen, keine Vermutungen.
 2. Belege jede Aussage direkt dahinter mit der Nummer der Passage in eckigen Klammern, z. B. [2].
    Mehrere Belege: [1][3]. Verwende nur Nummern, die in den Passagen vorkommen.
-3. Wenn die Passagen die Frage nicht oder nur teilweise beantworten, sage das ausdrücklich
+3. Wenn die Passagen die Frage nicht beantworten, sage das in einem Satz
    (z. B. „Dazu enthalten die Quellen keine Angaben.“) und erfinde nichts dazu.
    Hinter eine solche Feststellung gehört KEINE Nummer – sie stützt sich auf keine Passage.
+   Beantwortet eine Passage die Frage teilweise, gib nur diesen Teil wieder. Zähle nicht auf,
+   was in den Passagen fehlt, und ziehe daraus keine Schlüsse über das Dokument.
 4. Zitiere pro Aussage nur die Passagen, die sie wirklich belegen, meist eine oder zwei.
-5. Antworte in der Sprache der Frage, klar gegliedert: kurze Absätze, bei Aufzählungen
-   Zeilen mit "- ". Keine Überschriften, keine Quellenliste am Ende.
+   Die Nummer steht allein in der Klammer: [3] – nicht [3a] oder [3, Abs. 2].
+5. Antworte knapp (meist unter 200 Wörtern) in der Sprache der Frage: kurze Absätze, bei
+   Aufzählungen Zeilen mit "- ". Keine Überschriften, keine Trennlinien, keine
+   Zusammenfassung am Ende, keine Quellenliste.
 
 Beispiel 1:
 Passagen: [1] (Quelle: Bericht 2023, S. 4) Der Umsatz stieg 2023 um 12 % auf 4,1 Mio. Euro.

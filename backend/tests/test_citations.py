@@ -45,6 +45,9 @@ def test_invented_numbers_are_removed() -> None:
         ("Gedankenstrich [2–3].", "Gedankenstrich [1][2]."),
         ("Nebeneinander [2][2] und [2].", "Nebeneinander [1] und [1]."),
         ("Leerzeichen [ 1 ].", "Leerzeichen [1]."),
+        # observed with ministral-14b on the AI Act: sub-units glued to the passage number
+        ("Verbot a [3a], Verbot e [4, lit. e].", "Verbot a [1], Verbot e [2]."),
+        ("Absatz [3, Abs. 2].", "Absatz [1]."),
     ],
 )
 def test_marker_variants_are_normalized(answer: str, expected: str) -> None:
