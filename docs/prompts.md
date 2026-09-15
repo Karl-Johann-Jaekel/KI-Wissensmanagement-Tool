@@ -27,7 +27,8 @@ Rückfragen die Architektur geprägt haben und wo die Umsetzung vom Plan abwich.
 |---|---|---|
 | fastembed 0.8 kennt `multilingual-e5-small` nicht | Modellliste im Container abgefragt, bevor ADR-02 geschrieben wurde | als Custom-Model registriert, Similarity-Test; Modell ist ~470 MB statt geschätzter 120 MB ([ADR-02](adr/002-local-embeddings.md)) |
 | PyMuPDF ist AGPL, Repo ist MIT | Lizenzprüfung vor dem Pinnen der Abhängigkeiten | pypdf ([ADR-08](adr/008-pdf-parsing-pypdf.md)) |
-| Mistral-Workspace hatte 0 Requests/Minute | Header `x-ratelimit-limit-req-minute: 0` bei einer Test-Anfrage | Provider bricht sofort mit klarer Meldung ab statt viermal zu wiederholen; Quelle bleibt ohne Guide nutzbar (Migration 0002) |
+| Mistral lieferte für `mistral-small` 0 Requests/Minute | Header `x-ratelimit-limit-req-minute: 0`; Probe über alle Chat-Modelle zeigte: Kontingent ist pro Modell vergeben | Provider bricht bei Kontingent 0 sofort mit klarer Meldung ab; Quelle bleibt ohne Guide nutzbar (Migration 0002); Standardmodell nach Qualitätstest `ministral-14b-latest` ([ADR-03](adr/003-llm-provider-mistral.md)) |
+| Ministral 14B hängte alle acht Nummern an „keine Angaben“ | Qualitätstest mit echten Antworten | Prompt mit Negativbeispiel geschärft, Zitat-Parser verwirft Folgen von mehr als drei Belegen |
 | nginx lieferte 502 nach Neuerstellung des Backend-Containers | Browser-E2E | Upstream wird zur Laufzeit über Docker-DNS aufgelöst |
 | Aus Papern kopierte Literaturverweise wie `[2, 19]` sehen aus wie Zitate | Überlegung beim Zitat-Parser, Test mit dem Transformer-Paper | Klammergruppen mit einer ungültigen Nummer werden komplett verworfen |
 

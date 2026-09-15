@@ -13,7 +13,7 @@ class Settings(BaseSettings):
 
     llm_provider: Literal["mistral", "ollama"] = "mistral"
     mistral_api_key: str = ""
-    mistral_model: str = "mistral-small-latest"
+    mistral_model: str = "ministral-14b-latest"
     mistral_base_url: str = "https://api.mistral.ai/v1"
     ollama_base_url: str = "http://host.docker.internal:11434"
     ollama_model: str = "llama3.1:8b"

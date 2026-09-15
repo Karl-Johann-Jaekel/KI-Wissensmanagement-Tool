@@ -70,7 +70,7 @@ Alle Werte in [.env.example](.env.example). Die wichtigsten:
 |---|---|
 | `ACCESS_KEY` | gemeinsamer Zugangsschlüssel, mindestens 12 Zeichen |
 | `LLM_PROVIDER` | `mistral` (Standard) oder `ollama` |
-| `MISTRAL_API_KEY`, `MISTRAL_MODEL` | La Plateforme, Standard `mistral-small-latest` |
+| `MISTRAL_API_KEY`, `MISTRAL_MODEL` | La Plateforme, Standard `ministral-14b-latest` (Free-Tier-Kontingent ist pro Modell, siehe ADR-03) |
 | `FRONTEND_PORT` | Host-Port des Frontends, nur an `127.0.0.1` gebunden |
 | `CHUNK_MAX_CHARS`, `RETRIEVAL_TOP_K` | Chunk-Größe und Anzahl Passagen pro Antwort |
 
