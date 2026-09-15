@@ -7,7 +7,7 @@ from sqlalchemy import text
 
 from app.db import get_engine, get_sessionmaker
 from app.ingest.pipeline import recover_interrupted
-from app.routers import chat, notebooks, sources
+from app.routers import chat, notebooks, notes, sources
 from app.security import require_access_key
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
@@ -43,6 +43,7 @@ def auth_check() -> dict[str, bool]:
 protected.include_router(notebooks.router)
 protected.include_router(sources.router)
 protected.include_router(chat.router)
+protected.include_router(notes.router)
 
 app.include_router(public)
 app.include_router(protected)
