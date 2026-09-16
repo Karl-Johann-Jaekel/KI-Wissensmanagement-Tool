@@ -21,23 +21,25 @@ from typing import Any
 
 NOTEBOOK_TITLE = "KI im Unternehmen: Recht & Verträge"
 
+# Short sources first, the 200-page regulation last. Ingesting it takes minutes and many
+# guide calls; if it fails, the notebook is still usable with the three others.
 SOURCES = [
     {
-        "title": "KI-Verordnung (EU) 2024/1689",
-        # Amtsblatt-PDF, gespiegelt von der IHK – EUR-Lex blockt automatisierte Abrufe
-        "url": "https://www.ihk.de/blueprint/servlet/resource/blob/6203774/d2e3f88248a0a4951beb9eb8c3050d51/eu-ki-verordnung-data.pdf",
-    },
-    {
-        "title": "DSK: Orientierungshilfe generative KI mit RAG (2025)",
-        "url": "https://www.datenschutzkonferenz-online.de/media/oh/DSK_OH_RAG.pdf",
+        "title": "Mustervertrag Auftragsverarbeitung nach Art. 28 DSGVO (WKO)",
+        "url": "https://www.wko.at/oe/datenschutz/eu-dsgvo-mustervertrag-vereinbarung-auftragsverarbeitung.pdf",
     },
     {
         "title": "EU-Mustervertragsklauseln für KI-Beschaffung (MVK-KI) – Kommentar",
         "url": "https://public-buyers-community.ec.europa.eu/sites/default/files/2025-06/GROW-2025-00573-02-01-DE-TRA-00.pdf",
     },
     {
-        "title": "Mustervertrag Auftragsverarbeitung nach Art. 28 DSGVO (WKO)",
-        "url": "https://www.wko.at/oe/datenschutz/eu-dsgvo-mustervertrag-vereinbarung-auftragsverarbeitung.pdf",
+        "title": "DSK: Orientierungshilfe generative KI mit RAG (2025)",
+        "url": "https://www.datenschutzkonferenz-online.de/media/oh/DSK_OH_RAG.pdf",
+    },
+    {
+        "title": "KI-Verordnung (EU) 2024/1689",
+        # Amtsblatt-PDF, gespiegelt von der IHK – EUR-Lex blockt automatisierte Abrufe
+        "url": "https://www.ihk.de/blueprint/servlet/resource/blob/6203774/d2e3f88248a0a4951beb9eb8c3050d51/eu-ki-verordnung-data.pdf",
     },
 ]
 
