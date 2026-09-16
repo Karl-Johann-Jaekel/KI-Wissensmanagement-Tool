@@ -13,6 +13,9 @@ _RUN = re.compile(rf"{_GROUP_PATTERN}(?:[ \t]*{_GROUP_PATTERN})*")
 _QUALIFIED = re.compile(
     r"\[\s*(\d+)\s*(?:[a-z]|,?\s*(?:lit|Abs|Buchst|Nr|UAbs|S)\.?\s*[0-9a-z]{1,4})\s*\]"
 )
+# Anything in brackets that carries a digit but is not a passage group — "[9(3)]",
+# "[Anhang II]", "[Art. 6 Abs. 2]". Copied out of the sources, it reads like a citation.
+_LOOKALIKE = re.compile(r"\[[^\[\]\n]{1,60}\]")
 _SPACE_BEFORE_PUNCT = re.compile(r"[ \t]+([.,;:!?)])")
 _MULTI_SPACE = re.compile(r"[ \t]{2,}")
 SNIPPET_CHARS = 220
@@ -47,6 +50,8 @@ def resolve_citations(answer: str, passages: list[Passage]) -> tuple[str, list[R
       (typically academic references like `[2, 19]` copied from the source text)
     - more than MAX_CITATIONS_PER_CLAIM adjacent numbers are removed as a whole: models tend to
       append every passage to statements like "the sources say nothing about this"
+    - brackets that only look like a citation (`[9(3)]`, `[Anhang II]`) are removed as well;
+      copied from the source text, they would offer the reader a marker that leads nowhere
     - valid numbers are renumbered by first appearance and written as `[1][2]`
     """
     by_number = {p.n: p for p in passages}
@@ -69,7 +74,7 @@ def resolve_citations(answer: str, passages: list[Passage]) -> tuple[str, list[R
                 rendered.append(marker)
         return "".join(rendered)
 
-    normalized = _QUALIFIED.sub(r"[\1]", answer)
+    normalized = _drop_lookalikes(_QUALIFIED.sub(r"[\1]", answer))
     text = _GROUP.sub(replace, _RUN.sub(drop_dumps, normalized))
     text = re.sub(r"(?<=\d\])[ \t]+(?=\[\d)", "", text)  # [1] [2] → [1][2]
     text = re.sub(r"(\[\d+\])(?:\1)+", r"\1", text)  # [1][1] → [1]
@@ -88,6 +93,22 @@ def resolve_citations(answer: str, passages: list[Passage]) -> tuple[str, list[R
         for original, renumbered in sorted(new_number.items(), key=lambda item: item[1])
     ]
     return text, citations
+
+
+def _drop_lookalikes(text: str) -> str:
+    """Remove bracketed references that are not passage numbers.
+
+    Runs before validation, so it only sees the model's own wording: every bracket that holds a
+    digit but is not a passage group gets dropped. Brackets without digits ("[sic]") stay.
+    """
+
+    def keep(match: re.Match[str]) -> str:
+        token = match.group(0)
+        if _GROUP.fullmatch(token) or not any(c.isdigit() for c in token):
+            return token
+        return ""
+
+    return _LOOKALIKE.sub(keep, text)
 
 
 def strip_citations(text: str) -> str:
