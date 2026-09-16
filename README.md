@@ -8,9 +8,11 @@ Aussage mit einem klickbaren Beleg, der die Originalpassage öffnet.
 Entstanden als Bewerbungsaufgabe in einer 3-Tage-Zeitbox. Vorgehen und Status: [plan.md](plan.md),
 Entscheidungen: [docs/adr/](docs/adr/README.md), Arbeit mit AI-Tools: [docs/prompts.md](docs/prompts.md).
 
-![Notebook mit Quellen-Guide, Chat mit Belegen und gespeicherter Notiz](docs/screenshots/notebook.png)
+![Quellenliste, Antwort mit Belegen und dieselbe Antwort als Notiz – die Belege bleiben dort klickbar](docs/screenshots/notebook.png)
 
-<sub>Echter Durchlauf mit `ministral-14b-latest` und dem Paper „Attention Is All You Need“ (arXiv 1706.03762).</sub>
+<sub>Echter Durchlauf auf der Live-Instanz mit `ministral-14b-latest` und dem Demo-Notebook
+(KI-Verordnung, DSK-Leitlinie, Mustervertragsklauseln, Auftragsverarbeitungsvertrag).
+Aufgenommen mit [e2e/screenshots.py](e2e/screenshots.py).</sub>
 
 ## Funktionen
 
@@ -27,9 +29,13 @@ Entscheidungen: [docs/adr/](docs/adr/README.md), Arbeit mit AI-Tools: [docs/prom
 
 Bewusst nicht enthalten: Audio Overview, Mind Map, YouTube/Audio-Quellen, Multi-User.
 
-| Zitat-Viewer | Dunkelmodus | Mobil |
-|---|---|---|
-| ![Klick auf ein Zitat öffnet die hervorgehobene Passage](docs/screenshots/citation.png) | ![Dunkelmodus](docs/screenshots/dark.png) | <img src="docs/screenshots/mobile.png" alt="Mobile Ansicht mit Tabs" width="220"> |
+| Quellen-Guide | Zitat-Viewer |
+|---|---|
+| ![Zusammenfassung, Kernthemen und Fragevorschläge einer Quelle in der Hauptspalte](docs/screenshots/guide.png) | ![Klick auf ein Zitat öffnet die hervorgehobene Passage](docs/screenshots/citation.png) |
+
+| Dunkelmodus | Mobil |
+|---|---|
+| ![Dunkelmodus](docs/screenshots/dark.png) | <img src="docs/screenshots/mobile.png" alt="Mobile Ansicht mit Tabs" width="220"> |
 
 ## Architektur
 
@@ -133,6 +139,10 @@ docker compose up -d --remove-orphans   # danach zurück zur normalen Konfigurat
 Beim ersten Lauf wird das Transformer-Paper (arXiv 1706.03762) als Test-PDF geladen; Screenshots
 liegen anschließend in `e2e/out/`. Mit `E2E_IMPORT_URL=https://…` wird zusätzlich der URL-Import
 getestet.
+
+Die Screenshots in diesem README erzeugt [e2e/screenshots.py](e2e/screenshots.py) gegen eine
+laufende Instanz — Chat und Notizen des Ziel-Notebooks werden davor und danach geleert, die
+Bilder sind also wiederholbar.
 
 ## Projektstruktur
 
