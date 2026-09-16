@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { api } from '../api'
 import { errorText, useLoader } from '../hooks'
 import type { Notebook } from '../types'
+import { useConfirm, usePrompt } from './Dialogs'
 import { EditIcon, NoteIcon, PlusIcon, Spinner, TrashIcon } from './Icons'
 
 const dateFormat = new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium' })
@@ -10,6 +11,8 @@ export function NotebookList({ onOpen }: { onOpen: (id: string) => void }) {
   const notebooks = useLoader(api.listNotebooks, 'notebooks')
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [confirm, confirmDialog] = useConfirm()
+  const [prompt, promptDialog] = usePrompt()
 
   async function create() {
     setBusy(true)
@@ -24,7 +27,11 @@ export function NotebookList({ onOpen }: { onOpen: (id: string) => void }) {
   }
 
   async function rename(notebook: Notebook) {
-    const title = window.prompt('Neuer Titel', notebook.title)?.trim()
+    const title = await prompt({
+      title: 'Notebook umbenennen',
+      label: 'Titel',
+      initial: notebook.title,
+    })
     if (!title || title === notebook.title) return
     try {
       const updated = await api.renameNotebook(notebook.id, title)
@@ -35,7 +42,13 @@ export function NotebookList({ onOpen }: { onOpen: (id: string) => void }) {
   }
 
   async function remove(notebook: Notebook) {
-    if (!window.confirm(`„${notebook.title}“ mit allen Quellen, Chats und Notizen löschen?`)) return
+    const ok = await confirm({
+      title: 'Notebook löschen?',
+      body: `„${notebook.title}“ verschwindet mit allen Quellen, Chats und Notizen.`,
+      confirmLabel: 'Löschen',
+      danger: true,
+    })
+    if (!ok) return
     try {
       await api.deleteNotebook(notebook.id)
       notebooks.setData((list = []) => list.filter((n) => n.id !== notebook.id))
@@ -103,6 +116,8 @@ export function NotebookList({ onOpen }: { onOpen: (id: string) => void }) {
           ))}
         </ul>
       )}
+      {confirmDialog}
+      {promptDialog}
     </main>
   )
 }

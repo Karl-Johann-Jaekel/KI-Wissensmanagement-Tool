@@ -7,10 +7,11 @@ import {
   type KeyboardEvent,
   type Ref,
 } from 'react'
-import { api } from '../api'
+import { ApiError, api } from '../api'
 import { errorText, useLoader } from '../hooks'
-import type { Citation, Message, Note, Source } from '../types'
-import { NoteIcon, RefreshIcon, SendIcon, SparkIcon, Spinner, TrashIcon } from './Icons'
+import type { ChatResponse, Citation, Message, Note, Source } from '../types'
+import { useConfirm } from './Dialogs'
+import { CopyIcon, NoteIcon, RefreshIcon, SendIcon, SparkIcon, Spinner, TrashIcon } from './Icons'
 import { RichText } from './RichText'
 
 export interface ChatHandle {
@@ -38,37 +39,58 @@ export function ChatPanel({
 }: Props) {
   const messages = useLoader(() => api.listMessages(notebookId), `messages-${notebookId}`)
   const [draft, setDraft] = useState('')
-  const [sending, setSending] = useState<string | null>(null)
+  const [pending, setPending] = useState<Pending | null>(null)
   const [sendError, setSendError] = useState<{ question: string; message: string } | null>(null)
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set())
   const [noteError, setNoteError] = useState<string | null>(null)
+  const [confirm, confirmDialog] = useConfirm()
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const readySources = sources?.filter((s) => s.status === 'ready') ?? []
   const canAsk = readySources.length > 0 && selectedSourceIds.length > 0
-  const suggestions = readySources
-    .filter((s) => selectedSourceIds.includes(s.id))
-    .flatMap((s) => s.suggested_questions)
-    .slice(0, 4)
+  const suggestions = pickAcrossSources(
+    readySources.filter((s) => selectedSourceIds.includes(s.id)).map((s) => s.suggested_questions),
+  )
 
+  // Follow the answer while it is written, but stop fighting a reader who scrolled up.
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
-  }, [messages.data?.length, sending])
+    const el = scrollRef.current
+    if (!el) return
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120
+    if (atBottom || !pending?.text) {
+      el.scrollTo({ top: el.scrollHeight, behavior: pending?.text ? 'auto' : 'smooth' })
+    }
+  }, [messages.data?.length, pending?.text, pending?.passages])
 
   async function ask(question: string) {
     const text = question.trim()
-    if (!text || sending || !canAsk) return
-    setSending(text)
+    if (!text || pending || !canAsk) return
+    setPending({ question: text, text: '', passages: null })
     setSendError(null)
     setDraft('')
     try {
-      const response = await api.chat(notebookId, text, selectedSourceIds)
+      let opened = false
+      let response: ChatResponse
+      try {
+        response = await api.chatStream(notebookId, text, selectedSourceIds, {
+          onOpen: () => {
+            opened = true
+          },
+          onPassages: (passages) => setPending((p) => (p ? { ...p, passages } : p)),
+          onDelta: (piece) => setPending((p) => (p ? { ...p, text: p.text + piece } : p)),
+        })
+      } catch (err) {
+        // The stream never started: a proxy in between may drop event streams. Once it did
+        // start, the failure is real and retrying would ask the model a second time.
+        if (opened || (err instanceof ApiError && err.status === 401)) throw err
+        response = await api.chat(notebookId, text, selectedSourceIds)
+      }
       messages.setData((list = []) => [...list, response.question, response.answer])
     } catch (err) {
       setSendError({ question: text, message: errorText(err) })
       setDraft(text)
     } finally {
-      setSending(null)
+      setPending(null)
     }
   }
 
@@ -86,7 +108,13 @@ export function ChatPanel({
   }
 
   async function clearChat() {
-    if (!window.confirm('Chatverlauf löschen? Gespeicherte Notizen bleiben erhalten.')) return
+    const ok = await confirm({
+      title: 'Chatverlauf löschen?',
+      body: 'Gespeicherte Notizen bleiben erhalten.',
+      confirmLabel: 'Löschen',
+      danger: true,
+    })
+    if (!ok) return
     try {
       await api.clearMessages(notebookId)
       messages.setData(() => [])
@@ -135,7 +163,7 @@ export function ChatPanel({
           </div>
         )}
 
-        {!messages.loading && list.length === 0 && !sending && (
+        {!messages.loading && list.length === 0 && !pending && (
           <EmptyChat
             hasSources={readySources.length > 0}
             processing={sources?.some((s) => s.status === 'processing') ?? false}
@@ -146,11 +174,7 @@ export function ChatPanel({
 
         {list.map((message) =>
           message.role === 'user' ? (
-            <div key={message.id} className="flex justify-end">
-              <p className="max-w-[85%] rounded-2xl rounded-br-md bg-accent px-4 py-2 text-sm whitespace-pre-wrap text-accent-fg">
-                {message.content}
-              </p>
-            </div>
+            <Question key={message.id} text={message.content} />
           ) : (
             <article key={message.id} className="max-w-[95%] space-y-2">
               <RichText text={message.content} citations={message.citations} onCitation={onCitation} />
@@ -162,6 +186,7 @@ export function ChatPanel({
                 >
                   <NoteIcon size={14} /> {savedIds.has(message.id) ? 'Als Notiz gespeichert' : 'Als Notiz speichern'}
                 </button>
+                <CopyButton text={message.content} />
                 {message.citations.length > 0 && (
                   <span className="text-xs text-muted">
                     {message.citations.length === 1 ? '1 Beleg' : `${message.citations.length} Belege`}
@@ -172,16 +197,25 @@ export function ChatPanel({
           ),
         )}
 
-        {sending && (
+        {pending && (
           <>
-            <div className="flex justify-end">
-              <p className="max-w-[85%] rounded-2xl rounded-br-md bg-accent px-4 py-2 text-sm whitespace-pre-wrap text-accent-fg opacity-80">
-                {sending}
+            <Question text={pending.question} dimmed />
+            {pending.text ? (
+              <article className="max-w-[95%] space-y-2">
+                {/* Raw model output: the markers become clickable chips once validated. */}
+                <RichText text={pending.text} />
+                <p className="flex items-center gap-2 text-xs text-muted">
+                  <Spinner size={12} /> schreibt …
+                </p>
+              </article>
+            ) : (
+              <p className="flex items-center gap-2 text-sm text-muted">
+                <Spinner size={14} />
+                {pending.passages
+                  ? `${passageText(pending.passages)} – formuliere Antwort …`
+                  : 'Durchsuche Quellen …'}
               </p>
-            </div>
-            <p className="flex items-center gap-2 text-sm text-muted">
-              <Spinner size={14} /> Durchsuche Quellen und formuliere Antwort …
-            </p>
+            )}
           </>
         )}
       </div>
@@ -213,8 +247,8 @@ export function ChatPanel({
             disabled={!canAsk}
             aria-label="Frage"
           />
-          <button className="btn-primary size-11 shrink-0 p-0" disabled={!canAsk || !draft.trim() || !!sending} aria-label="Senden">
-            {sending ? <Spinner /> : <SendIcon />}
+          <button className="btn-primary size-11 shrink-0 p-0" disabled={!canAsk || !draft.trim() || !!pending} aria-label="Senden">
+            {pending ? <Spinner /> : <SendIcon />}
           </button>
         </form>
         <p className="mt-2 text-center text-[11px] text-muted">
@@ -223,7 +257,61 @@ export function ChatPanel({
             : 'Antworten basieren ausschließlich auf deinen Quellen.'}
         </p>
       </div>
+      {confirmDialog}
     </section>
+  )
+}
+
+interface Pending {
+  question: string
+  text: string
+  passages: { count: number; sources: number } | null
+}
+
+function passageText({ count, sources }: { count: number; sources: number }): string {
+  const passages = count === 1 ? '1 Passage' : `${count} Passagen`
+  return sources === 1 ? `${passages} aus 1 Quelle` : `${passages} aus ${sources} Quellen`
+}
+
+/** Round-robin, so every selected source contributes before any source repeats. */
+function pickAcrossSources(perSource: string[][], limit = 4): string[] {
+  const picked: string[] = []
+  const depth = Math.max(0, ...perSource.map((q) => q.length))
+  for (let i = 0; i < depth && picked.length < limit; i++) {
+    for (const questions of perSource) {
+      const question = questions[i]
+      if (question !== undefined && picked.length < limit) picked.push(question)
+    }
+  }
+  return picked
+}
+
+function Question({ text, dimmed = false }: { text: string; dimmed?: boolean }) {
+  return (
+    <div className="flex justify-end">
+      <p
+        className={`max-w-[85%] rounded-2xl rounded-br-md bg-accent px-4 py-2 text-sm whitespace-pre-wrap text-accent-fg ${dimmed ? 'opacity-80' : ''}`}
+      >
+        {text}
+      </p>
+    </div>
+  )
+}
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+  return (
+    <button
+      className="btn-ghost text-xs"
+      onClick={() => {
+        void navigator.clipboard?.writeText(text).then(() => {
+          setCopied(true)
+          window.setTimeout(() => setCopied(false), 1500)
+        })
+      }}
+    >
+      <CopyIcon size={14} /> {copied ? 'Kopiert' : 'Kopieren'}
+    </button>
   )
 }
 
@@ -266,7 +354,7 @@ function EmptyChat({
           <p className="text-sm text-muted">
             {processing
               ? 'Sobald die erste Quelle bereit ist, kannst du Fragen stellen.'
-              : 'Füge links eine Quelle hinzu, um mit dem Chat zu beginnen.'}
+              : 'Füge eine Quelle hinzu, um mit dem Chat zu beginnen.'}
           </p>
         </>
       )}

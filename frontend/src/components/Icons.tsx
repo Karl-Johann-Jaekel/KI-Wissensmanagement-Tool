@@ -96,6 +96,13 @@ export const SparkIcon = (p: IconProps) => (
   </Icon>
 )
 
+export const CopyIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="9" y="9" width="11" height="11" rx="2" />
+    <path d="M6 15H5a2 2 0 01-2-2V5a2 2 0 012-2h8a2 2 0 012 2v1" />
+  </Icon>
+)
+
 export function Spinner({ size = 16 }: { size?: number }) {
   return (
     <svg

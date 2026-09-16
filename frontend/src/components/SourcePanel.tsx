@@ -3,6 +3,7 @@ import { api } from '../api'
 import { errorText } from '../hooks'
 import type { Source } from '../types'
 import { AddSourceDialog } from './AddSourceDialog'
+import { useConfirm, usePrompt } from './Dialogs'
 import {
   ChevronIcon,
   EditIcon,
@@ -43,12 +44,20 @@ export function SourcePanel({
   const [dialogOpen, setDialogOpen] = useState(false)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [confirm, confirmDialog] = useConfirm()
+  const [prompt, promptDialog] = usePrompt()
 
   const ready = sources?.filter((s) => s.status === 'ready') ?? []
   const allSelected = ready.length > 0 && ready.every((s) => !deselected.has(s.id))
 
   async function remove(source: Source) {
-    if (!window.confirm(`Quelle „${source.title}“ entfernen?`)) return
+    const ok = await confirm({
+      title: 'Quelle entfernen?',
+      body: `„${source.title}“ wird mit allen Abschnitten und Belegen gelöscht.`,
+      confirmLabel: 'Entfernen',
+      danger: true,
+    })
+    if (!ok) return
     try {
       await api.deleteSource(source.id)
       onSourceRemoved(source.id)
@@ -58,7 +67,11 @@ export function SourcePanel({
   }
 
   async function rename(source: Source) {
-    const title = window.prompt('Neuer Titel der Quelle', source.title)?.trim()
+    const title = await prompt({
+      title: 'Quelle umbenennen',
+      label: 'Titel der Quelle',
+      initial: source.title,
+    })
     if (!title || title === source.title) return
     try {
       onSourceChanged(await api.renameSource(source.id, title))
@@ -139,6 +152,8 @@ export function SourcePanel({
           onClose={() => setDialogOpen(false)}
         />
       )}
+      {confirmDialog}
+      {promptDialog}
     </section>
   )
 }

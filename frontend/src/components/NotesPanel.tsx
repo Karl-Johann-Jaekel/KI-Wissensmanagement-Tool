@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { api } from '../api'
 import { errorText } from '../hooks'
 import type { Note } from '../types'
+import { useConfirm } from './Dialogs'
 import { CloseIcon, EditIcon, NoteIcon, PlusIcon, Spinner, TrashIcon } from './Icons'
 import { RichText } from './RichText'
 
@@ -19,6 +20,7 @@ export function NotesPanel({ notebookId, notes, loadError, onChange, className =
   const [editing, setEditing] = useState<string | 'new' | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [confirm, confirmDialog] = useConfirm()
 
   async function save(note: Note | null, title: string, content: string) {
     setActionError(null)
@@ -38,7 +40,13 @@ export function NotesPanel({ notebookId, notes, loadError, onChange, className =
   }
 
   async function remove(note: Note) {
-    if (!window.confirm(`Notiz „${note.title}“ löschen?`)) return
+    const ok = await confirm({
+      title: 'Notiz löschen?',
+      body: `„${note.title}“ lässt sich danach nicht wiederherstellen.`,
+      confirmLabel: 'Löschen',
+      danger: true,
+    })
+    if (!ok) return
     try {
       await api.deleteNote(note.id)
       onChange((list) => list.filter((n) => n.id !== note.id))
@@ -113,6 +121,7 @@ export function NotesPanel({ notebookId, notes, loadError, onChange, className =
           )
         )}
       </div>
+      {confirmDialog}
     </section>
   )
 }

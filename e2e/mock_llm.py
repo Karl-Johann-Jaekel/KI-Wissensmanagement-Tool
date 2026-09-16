@@ -5,10 +5,12 @@
 - chat requests → bullet points quoting the first passages with [n] markers, plus a fake
   academic reference "[2, 19]" that the backend must strip; questions about "Wetter" get the
   "not in the sources" answer
+- stream requests → the same answer as server-sent events, one word per event
 """
 
 import json
 import re
+import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 PASSAGE = re.compile(
@@ -52,12 +54,29 @@ class Handler(BaseHTTPRequestHandler):
             content = "Abschnittszusammenfassung."
         else:
             content = chat_answer(messages)
+        if body.get("stream"):
+            self._send_stream(content)
+            return
         payload = json.dumps({"choices": [{"message": {"content": content}}]}).encode()
         self.send_response(200)
         self.send_header("content-type", "application/json")
         self.send_header("content-length", str(len(payload)))
         self.end_headers()
         self.wfile.write(payload)
+
+    def _send_stream(self, content: str) -> None:
+        self.send_response(200)
+        self.send_header("content-type", "text/event-stream")
+        self.send_header("cache-control", "no-cache")
+        self.end_headers()
+        for i, word in enumerate(content.split(" ")):
+            piece = word if i == 0 else f" {word}"
+            data = json.dumps({"choices": [{"delta": {"content": piece}}]})
+            self.wfile.write(f"data: {data}\n\n".encode())
+            self.wfile.flush()
+            time.sleep(0.01)  # a real model does not arrive all at once
+        self.wfile.write(b"data: [DONE]\n\n")
+        self.wfile.flush()
 
 
 if __name__ == "__main__":

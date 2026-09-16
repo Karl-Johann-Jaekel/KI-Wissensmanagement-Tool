@@ -83,6 +83,94 @@ const json = (method: string, body?: unknown): RequestInit => ({
   body: body === undefined ? undefined : JSON.stringify(body),
 })
 
+export interface ChatStreamHandlers {
+  /** The server accepted the request; from here on a failure is not a transport problem. */
+  onOpen?: () => void
+  /** Retrieval is done; generation starts now. */
+  onPassages?: (info: { count: number; sources: number }) => void
+  /** Raw model output as it arrives. Citation markers are validated only at the end. */
+  onDelta: (text: string) => void
+}
+
+type StreamEvent =
+  | { type: 'passages'; count: number; sources: number }
+  | { type: 'delta'; text: string }
+  | { type: 'error'; detail: string }
+  | ({ type: 'done' } & ChatResponse)
+
+/**
+ * Server-sent events for one answer. Resolves with the same payload the non-streaming
+ * endpoint returns, so the caller can replace the streamed text with the validated one.
+ */
+async function chatStream(
+  notebookId: string,
+  question: string,
+  sourceIds: string[],
+  handlers: ChatStreamHandlers,
+): Promise<ChatResponse> {
+  const headers = new Headers({ 'Content-Type': 'application/json' })
+  const key = getAccessKey()
+  if (key) headers.set('X-Access-Key', key)
+
+  let response: Response
+  try {
+    response = await fetch(`/api/notebooks/${notebookId}/chat/stream`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ question, source_ids: sourceIds }),
+    })
+  } catch {
+    throw new ApiError(0, 'Server nicht erreichbar. Bitte Verbindung prüfen.')
+  }
+  if (response.status === 401) {
+    unauthorizedHandler()
+    throw new ApiError(401, 'Zugangsschlüssel ungültig.')
+  }
+  if (!response.ok) throw new ApiError(response.status, await errorMessage(response))
+  if (!response.body) throw new ApiError(0, 'Der Browser unterstützt keine Antwort-Streams.')
+  handlers.onOpen?.()
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let result: ChatResponse | null = null
+
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      // Events are separated by a blank line; a chunk can hold several or half of one.
+      let boundary = buffer.indexOf('\n\n')
+      while (boundary !== -1) {
+        const frame = buffer.slice(0, boundary)
+        buffer = buffer.slice(boundary + 2)
+        const event = parseEvent(frame)
+        if (event?.type === 'passages') handlers.onPassages?.(event)
+        else if (event?.type === 'delta') handlers.onDelta(event.text)
+        else if (event?.type === 'error') throw new ApiError(503, event.detail)
+        else if (event?.type === 'done') result = { question: event.question, answer: event.answer }
+        boundary = buffer.indexOf('\n\n')
+      }
+    }
+  } finally {
+    await reader.cancel().catch(() => {})
+  }
+
+  if (!result) throw new ApiError(0, 'Die Antwort wurde unterwegs abgeschnitten.')
+  return result
+}
+
+function parseEvent(frame: string): StreamEvent | null {
+  const line = frame.split('\n').find((l) => l.startsWith('data: '))
+  if (!line) return null
+  try {
+    return JSON.parse(line.slice('data: '.length)) as StreamEvent
+  } catch {
+    return null
+  }
+}
+
 export const api = {
   checkKey: (key: string) => request<{ ok: boolean }>('/auth/check', {}, key),
 
@@ -118,6 +206,7 @@ export const api = {
       `/notebooks/${notebookId}/chat`,
       json('POST', { question, source_ids: sourceIds }),
     ),
+  chatStream,
 
   listNotes: (notebookId: string) => request<Note[]>(`/notebooks/${notebookId}/notes`),
   createNote: (notebookId: string, title: string, content: string) =>

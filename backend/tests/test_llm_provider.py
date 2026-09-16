@@ -156,3 +156,108 @@ def test_ollama_uses_chat_endpoint_with_json_format() -> None:
     assert seen["path"] == "/api/chat"
     assert seen["format"] == "json"
     assert seen["stream"] is False
+
+
+def _sse(*chunks: str) -> httpx.Response:
+    """A Mistral-style stream: one `data:` line per delta, terminated by [DONE]."""
+    lines = [f"data: {json.dumps({'choices': [{'delta': {'content': c}}]})}" for c in chunks]
+    lines += ["data: [DONE]"]
+    return httpx.Response(200, content=("\n\n".join(lines) + "\n\n").encode())
+
+
+def test_mistral_stream_yields_deltas_in_order() -> None:
+    seen: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.update(json.loads(request.content))
+        return _sse("Pflanzen ", "nutzen ", "Licht [1].")
+
+    pieces = list(_mistral(handler).stream([{"role": "user", "content": "x"}]))
+    assert pieces == ["Pflanzen ", "nutzen ", "Licht [1]."]
+    assert seen["stream"] is True
+
+
+def test_mistral_stream_skips_keepalives_and_unparsable_lines() -> None:
+    body = b"\n".join(
+        [
+            b": keep-alive",
+            b"data: not json",
+            b'data: {"choices": [{"delta": {}}]}',
+            b'data: {"choices": [{"delta": {"content": "Text"}}]}',
+            b"data: [DONE]",
+        ]
+    )
+    pieces = list(
+        _mistral(lambda _r: httpx.Response(200, content=body)).stream(
+            [{"role": "user", "content": "x"}]
+        )
+    )
+    assert pieces == ["Text"]
+
+
+def test_mistral_stream_retries_while_nothing_was_sent() -> None:
+    responses = iter([httpx.Response(429), _sse("ok")])
+    sleeps: list[float] = []
+    pieces = list(
+        _mistral(lambda _r: next(responses), sleeps).stream([{"role": "user", "content": "x"}])
+    )
+    assert pieces == ["ok"]
+    assert sleeps == [1.0]
+
+
+def test_ollama_stream_reads_one_json_object_per_line() -> None:
+    body = b"\n".join(
+        [
+            json.dumps({"message": {"content": "Hallo"}}).encode(),
+            json.dumps({"message": {"content": " Welt"}}).encode(),
+            json.dumps({"done": True}).encode(),
+        ]
+    )
+    provider = OllamaProvider(
+        base_url="http://ollama",
+        model="llama3.1:8b",
+        transport=httpx.MockTransport(lambda _r: httpx.Response(200, content=body)),
+        sleep=lambda _s: None,
+    )
+    assert list(provider.stream([{"role": "user", "content": "x"}])) == ["Hallo", " Welt"]
+
+
+class _ScriptedStream:
+    """Minimal provider stub: yields the given pieces, then optionally fails."""
+
+    def __init__(self, pieces: list[str], error: Exception | None = None) -> None:
+        self.pieces = pieces
+        self.error = error
+
+    def complete(self, messages, *, json_mode=False, max_tokens=None):  # type: ignore[no-untyped-def]
+        raise AssertionError("not used")
+
+    def stream(self, messages):  # type: ignore[no-untyped-def]
+        yield from self.pieces
+        if self.error:
+            raise self.error
+
+
+def test_fallback_switches_provider_when_the_first_sent_nothing() -> None:
+    fallback = FallbackProvider(
+        [
+            ("primary", _ScriptedStream([], LLMError("limit"))),
+            ("secondary", _ScriptedStream(["Zweite ", "Antwort"])),
+        ]
+    )
+    assert list(fallback.stream([{"role": "user", "content": "x"}])) == ["Zweite ", "Antwort"]
+
+
+def test_fallback_does_not_restart_an_answer_that_already_started() -> None:
+    fallback = FallbackProvider(
+        [
+            ("primary", _ScriptedStream(["Halbe "], LLMError("abgerissen"))),
+            ("secondary", _ScriptedStream(["Ganze Antwort"])),
+        ]
+    )
+    pieces: list[str] = []
+    with pytest.raises(LLMError, match="abgerissen"):
+        for piece in fallback.stream([{"role": "user", "content": "x"}]):
+            pieces.append(piece)
+    # the second provider would have repeated what the user already read
+    assert pieces == ["Halbe "]

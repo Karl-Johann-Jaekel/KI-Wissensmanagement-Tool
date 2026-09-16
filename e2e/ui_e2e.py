@@ -30,6 +30,18 @@ def watch_console(page: Page, label: str) -> None:
         and problems.append(f"[{label}] console.{m.type}: {m.text}"),
     )
     page.on("pageerror", lambda e: problems.append(f"[{label}] pageerror: {e}"))
+    page.on(
+        "dialog",
+        lambda d: problems.append(f"[{label}] native dialog: {d.message}") or d.dismiss(),
+    )
+
+
+def rename_in_dialog(page: Page, value: str) -> None:
+    """Fill the in-app rename dialog (replaced window.prompt)."""
+    dialog = page.get_by_role("dialog")
+    dialog.get_by_role("textbox").fill(value)
+    dialog.get_by_role("button", name="Speichern").click()
+    expect(dialog).to_be_hidden()
 
 
 def step(name: str) -> None:
@@ -66,8 +78,8 @@ with sync_playwright() as p:
     step("create and rename notebook")
     page.get_by_role("button", name="Neues Notebook").click()
     expect(page.get_by_role("heading", name="Unbenanntes Notebook")).to_be_visible()
-    page.once("dialog", lambda d: d.accept(TITLE))
     page.get_by_role("heading", name="Unbenanntes Notebook").click()
+    rename_in_dialog(page, TITLE)
     expect(page.get_by_role("heading", name=TITLE)).to_be_visible()
 
     step("upload pdf")
@@ -86,8 +98,8 @@ with sync_playwright() as p:
     page.screenshot(path=OUT / "01-guide.png")
 
     step("rename source")
-    page.once("dialog", lambda d: d.accept("Transformer-Paper"))
     page.get_by_role("button", name="Umbenennen").click()
+    rename_in_dialog(page, "Transformer-Paper")
     expect(page.get_by_role("button", name=re.compile(r"^Transformer-Paper"))).to_be_visible()
 
     step("suggested question → answer with citation chips")
@@ -98,6 +110,13 @@ with sync_playwright() as p:
     assert "[2, 19]" not in answer, "invalid citation group must be stripped"
     assert chips.count() >= 2, f"expected ≥ 2 citation chips, got {chips.count()}"
     page.screenshot(path=OUT / "02-answer.png")
+
+    step("citation chip previews the passage on hover")
+    chips.first.hover()
+    preview = page.get_by_role("tooltip")
+    expect(preview).to_be_visible()
+    expect(preview.get_by_text("Klicken öffnet die Passage")).to_be_visible()
+    page.screenshot(path=OUT / "02b-preview.png")
 
     step("citation drawer shows highlighted passage")
     chips.first.click()
@@ -179,8 +198,8 @@ with sync_playwright() as p:
     step("delete notebook")
     page.goto(BASE)
     card = page.locator("li", has_text=TITLE)
-    page.once("dialog", lambda d: d.accept())
     card.get_by_role("button", name="Löschen").click()
+    page.get_by_role("dialog").get_by_role("button", name="Löschen").click()
     expect(card).to_have_count(0)
 
     browser.close()
