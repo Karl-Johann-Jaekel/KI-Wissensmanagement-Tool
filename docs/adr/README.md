@@ -13,3 +13,4 @@ Kurze ADRs nach dem Schema Kontext → Entscheidung → Konsequenzen → verworf
 | [ADR-07](007-access-key.md) | Access-Key statt Auth-System | angenommen |
 | [ADR-08](008-pdf-parsing-pypdf.md) | PDF-Parsing mit pypdf statt PyMuPDF | angenommen |
 | [ADR-09](009-llm-fallback.md) | LLM-Fallback innerhalb von Mistral statt Ollama | angenommen |
+| [ADR-10](010-streaming-answers.md) | Antworten streamen, Zitate weiterhin am Ende validieren | angenommen |
