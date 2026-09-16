@@ -44,7 +44,7 @@ def create_note(notebook_id: uuid.UUID, payload: NoteCreate, db: DB) -> Note:
     status_code=status.HTTP_201_CREATED,
 )
 def create_note_from_message(notebook_id: uuid.UUID, message_id: uuid.UUID, db: DB) -> Note:
-    """Save an answer as note; citations become a readable source list."""
+    """Save an answer as note, keeping its citations clickable."""
     message = get_or_404(db, Message, message_id)
     if message.notebook_id != notebook_id or message.role != "assistant":
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Answer not found")
@@ -64,15 +64,12 @@ def create_note_from_message(notebook_id: uuid.UUID, message_id: uuid.UUID, db: 
     if len(title) > TITLE_CHARS:
         title = title[: TITLE_CHARS - 1].rstrip() + "…"
 
-    content = message.content
-    if message.citations:
-        lines = []
-        for citation in message.citations:
-            page = f", S. {citation['page']}" if citation.get("page") else ""
-            lines.append(f"[{citation['n']}] {citation['source_title']}{page}")
-        content = f"{content}\n\nQuellen:\n" + "\n".join(lines)
-
-    note = Note(notebook_id=notebook_id, title=title, content=content)
+    note = Note(
+        notebook_id=notebook_id,
+        title=title,
+        content=message.content,
+        citations=message.citations,
+    )
     db.add(note)
     db.commit()
     db.refresh(note)

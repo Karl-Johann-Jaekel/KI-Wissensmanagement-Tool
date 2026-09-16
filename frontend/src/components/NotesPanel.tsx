@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { api } from '../api'
 import { errorText } from '../hooks'
-import type { Note } from '../types'
+import type { Citation, Note } from '../types'
 import { useConfirm } from './Dialogs'
 import { CloseIcon, EditIcon, NoteIcon, PlusIcon, Spinner, TrashIcon } from './Icons'
 import { RichText } from './RichText'
@@ -11,12 +11,24 @@ interface Props {
   notes: Note[] | undefined
   loadError: string | null
   onChange: (update: (notes: Note[]) => Note[]) => void
+  onCitation: (citation: Citation) => void
   className?: string
 }
 
+/** Collapsed preview: markers and bold markup would only add noise to two lines of text. */
+const plainPreview = (content: string) =>
+  content.replaceAll('**', '').replace(/\s*\[\d+\]/g, '')
+
 const timeFormat = new Intl.DateTimeFormat('de-DE', { dateStyle: 'short', timeStyle: 'short' })
 
-export function NotesPanel({ notebookId, notes, loadError, onChange, className = '' }: Props) {
+export function NotesPanel({
+  notebookId,
+  notes,
+  loadError,
+  onChange,
+  onCitation,
+  className = '',
+}: Props) {
   const [editing, setEditing] = useState<string | 'new' | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -99,13 +111,13 @@ export function NotesPanel({ notebookId, notes, loadError, onChange, className =
                 >
                   <h3 className="text-sm font-medium break-words">{note.title}</h3>
                   {openId !== note.id && (
-                    <p className="mt-1 line-clamp-2 text-xs text-muted">{note.content.replaceAll('**', '')}</p>
+                    <p className="mt-1 line-clamp-2 text-xs text-muted">{plainPreview(note.content)}</p>
                   )}
                   <p className="mt-1 text-[11px] text-muted">{timeFormat.format(new Date(note.updated_at))}</p>
                 </button>
                 {openId === note.id && (
                   <div className="space-y-2 border-t border-line px-3 py-3">
-                    <RichText text={note.content} />
+                    <RichText text={note.content} citations={note.citations} onCitation={onCitation} />
                     <div className="flex gap-1">
                       <button className="btn-ghost -ml-3" onClick={() => setEditing(note.id)}>
                         <EditIcon size={14} /> Bearbeiten

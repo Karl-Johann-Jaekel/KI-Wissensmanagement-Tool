@@ -165,6 +165,7 @@ export function NotebookView({ notebookId, onBack }: { notebookId: string; onBac
           notes={notes.data}
           loadError={notes.error}
           onChange={(update) => setNotes((list = []) => update(list))}
+          onCitation={setCitation}
         />
       </div>
 

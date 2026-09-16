@@ -107,5 +107,6 @@ class NoteOut(ORMModel):
     notebook_id: uuid.UUID
     title: str
     content: str
+    citations: list[Citation] = []
     created_at: datetime
     updated_at: datetime
