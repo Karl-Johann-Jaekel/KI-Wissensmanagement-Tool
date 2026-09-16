@@ -96,7 +96,8 @@ class ChatResponse(BaseModel):
 
 
 # --- notes ---
-class BriefingRequest(BaseModel):
+class ReportRequest(BaseModel):
+    kind: Literal["briefing", "faq"] = "briefing"
     source_ids: list[uuid.UUID] | None = None  # None = all ready sources
 
 

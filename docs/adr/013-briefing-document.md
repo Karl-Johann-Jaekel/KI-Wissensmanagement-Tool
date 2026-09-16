@@ -1,4 +1,4 @@
-# ADR-13: Briefing-Doc als Kette gewöhnlicher, belegter Antworten
+# ADR-13: Berichte als Kette gewöhnlicher, belegter Antworten
 
 Status: angenommen
 
@@ -14,18 +14,27 @@ entweder verdoppelt oder umgangen.
 
 ## Entscheidung
 
-Das Briefing ist **keine neue Art zu generieren, sondern eine Folge gewöhnlicher Antworten**. Für
-jede Kernfrage des Notebooks ([ADR-12](012-notebook-overview.md)) läuft der normale Chat-Pfad:
-Hybrid-Retrieval auf die ausgewählten Quellen, dasselbe System-Prompt, dieselbe Zitatprüfung. Die
-Abschnitte werden zu einem Dokument zusammengesetzt und als Notiz gespeichert, deren Belege
-klickbar bleiben ([ADR-11](011-note-citations.md)).
+Ein Bericht ist **keine neue Art zu generieren, sondern eine Folge gewöhnlicher Antworten**. Für
+jede Frage läuft der normale Chat-Pfad: Hybrid-Retrieval auf die ausgewählten Quellen, dasselbe
+System-Prompt, dieselbe Zitatprüfung. Die Abschnitte werden zu einem Dokument zusammengesetzt und
+als Notiz gespeichert, deren Belege klickbar bleiben ([ADR-11](011-note-citations.md)).
+
+Die Berichtsarten unterscheiden sich **nur darin, woher ihre Fragen kommen**:
+
+| Art | Fragen | Blickwinkel |
+|---|---|---|
+| Briefing | die Kernfragen des Notebooks ([ADR-12](012-notebook-overview.md)) | die Sammlung als Ganzes |
+| FAQ | die Fragevorschläge der Quellen-Guides, reihum über die Quellen | jede Quelle einzeln |
+
+Mehr Arten kosten damit eine Zeile: eine Fragenquelle und zwei Textbausteine. Genau deshalb
+lohnt sich der Verzicht auf einen eigenen Generierungspfad.
 
 Jeder Abschnitt wird gegen seine eigenen Passagen geprüft und beginnt deshalb bei `[1]`. Beim
 Zusammensetzen werden die Nummern auf eine dokumentweite Zählung umgeschrieben — eine Passage,
 die in zwei Abschnitten zitiert wird, behält eine Nummer. Das Umschreiben passiert in einem
 einzigen Durchlauf, damit sich vertauschte Nummern nicht gegenseitig überschreiben.
 
-Fehlt der Überblick noch, dient je eine Fragevorschlag pro Quelle als Ersatz.
+Fehlt dem Briefing der Überblick noch, dient je ein Fragevorschlag pro Quelle als Ersatz.
 
 ## Konsequenzen
 
@@ -40,8 +49,9 @@ Fehlt der Überblick noch, dient je eine Fragevorschlag pro Quelle als Ersatz.
   genauso, weil dieselben Fragen dort als Einstieg angeboten werden.
 - Jeder Abschnitt bekommt doppelt so viele Passagen wie ein Chat-Turn: ihm fehlt die Rückfrage,
   mit der ein Gespräch Lücken schließt.
-- Es kostet eine LLM-Anfrage je Kernfrage, höchstens vier. Der Aufruf ist synchron und dauert
-  etwa eine Minute; die Oberfläche sagt das vorher an, statt einen stummen Spinner zu zeigen.
+- Es kostet eine LLM-Anfrage je Frage: höchstens vier beim Briefing, höchstens sechs bei der
+  FAQ. Der Aufruf ist synchron und dauert etwa eine Minute; die Oberfläche sagt das vorher an,
+  statt einen stummen Spinner zu zeigen.
 - Das Dokument ist so strukturiert wie die Kernfragen. Eine freie Gliederung („Hintergrund,
   Risiken, Empfehlung") wäre dokumentartiger, hätte aber keine Grundlage in den Quellen.
 - `retrieve_passages`, `build_answer_messages` und `validate_answer` sind aus dem Chat-Router

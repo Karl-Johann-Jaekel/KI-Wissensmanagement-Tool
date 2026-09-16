@@ -109,7 +109,8 @@ Alle LLM-Prompts liegen gebündelt in
 | `MAP_SYSTEM` | Map-Schritt für lange Quellen, bevor der Guide zusammengefasst wird |
 | `CHAT_SYSTEM` / `CHAT_USER` | Antworten nur aus nummerierten Passagen, mit Zitierregeln und drei Beispielen |
 | `OVERVIEW_SYSTEM` / `OVERVIEW_USER` | Notebook-Überblick aus den Quellen-Guides, plus beantwortbare Einstiegsfragen |
-| `BRIEFING_INTRO` | Kopftext des Briefings; die Abschnitte selbst entstehen über `CHAT_SYSTEM` ([ADR-13](adr/013-briefing-document.md)) |
+| `BRIEFING_INTRO`, `FAQ_INTRO` | Kopftexte der Berichte; die Abschnitte selbst entstehen über `CHAT_SYSTEM` ([ADR-13](adr/013-briefing-document.md)) |
 
-Das Briefing hat bewusst **keinen** eigenen Generierungs-Prompt: es beantwortet die Kernfragen
-über denselben Pfad wie der Chat und erbt damit dessen Zitatprüfung.
+Die Berichte haben bewusst **keinen** eigenen Generierungs-Prompt: sie beantworten ihre Fragen
+über denselben Pfad wie der Chat und erben damit dessen Zitatprüfung. Eine weitere Berichtsart
+kostet deshalb eine Fragenquelle und zwei Textbausteine, keinen neuen Prompt.

@@ -1,9 +1,19 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { api } from '../api'
 import { errorText } from '../hooks'
-import type { Citation, Note } from '../types'
+import type { Citation, Note, ReportKind } from '../types'
 import { useConfirm } from './Dialogs'
-import { CloseIcon, EditIcon, NoteIcon, PlusIcon, SparkIcon, Spinner, TrashIcon } from './Icons'
+import {
+  CloseIcon,
+  EditIcon,
+  FaqIcon,
+  MapIcon,
+  NoteIcon,
+  PlusIcon,
+  SparkIcon,
+  Spinner,
+  TrashIcon,
+} from './Icons'
 import { RichText } from './RichText'
 
 interface Props {
@@ -13,6 +23,7 @@ interface Props {
   selectedSourceIds: string[]
   onChange: (update: (notes: Note[]) => Note[]) => void
   onCitation: (citation: Citation) => void
+  onOpenTopics: () => void
   className?: string
 }
 
@@ -22,32 +33,33 @@ const plainPreview = (content: string) =>
 
 const timeFormat = new Intl.DateTimeFormat('de-DE', { dateStyle: 'short', timeStyle: 'short' })
 
-export function NotesPanel({
+export function StudioPanel({
   notebookId,
   notes,
   loadError,
   selectedSourceIds,
   onChange,
   onCitation,
+  onOpenTopics,
   className = '',
 }: Props) {
   const [editing, setEditing] = useState<string | 'new' | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
-  const [briefing, setBriefing] = useState(false)
+  const [running, setRunning] = useState<ReportKind | null>(null)
   const [confirm, confirmDialog] = useConfirm()
 
-  async function createBriefing() {
+  async function createReport(kind: ReportKind) {
     setActionError(null)
-    setBriefing(true)
+    setRunning(kind)
     try {
-      const note = await api.createBriefing(notebookId, selectedSourceIds)
+      const note = await api.createReport(notebookId, kind, selectedSourceIds)
       onChange((list) => [note, ...list])
       setOpenId(note.id)
     } catch (err) {
       setActionError(errorText(err))
     } finally {
-      setBriefing(false)
+      setRunning(null)
     }
   }
 
@@ -85,34 +97,45 @@ export function NotesPanel({
   }
 
   return (
-    <section className={`panel ${className}`} aria-label="Notizen">
+    <section className={`panel ${className}`} aria-label="Studio">
       <div className="panel-header">
-        <h2 className="font-medium">Notizen</h2>
-        <div className="flex items-center gap-1">
-          <button
-            className="btn-ghost"
-            onClick={() => void createBriefing()}
-            disabled={briefing || selectedSourceIds.length === 0}
-            title="Beantwortet die Kernfragen des Notebooks aus den ausgewählten Quellen"
-          >
-            {briefing ? <Spinner size={14} /> : <SparkIcon size={14} />} Briefing
-          </button>
-          <button
-            className="btn-ghost"
-            onClick={() => setEditing('new')}
-            disabled={editing === 'new'}
-          >
-            <PlusIcon /> Neu
-          </button>
-        </div>
+        <h2 className="font-medium">Studio</h2>
+        <button className="btn-ghost" onClick={() => setEditing('new')} disabled={editing === 'new'}>
+          <PlusIcon /> Notiz
+        </button>
+      </div>
+
+      {/* Everything the notebook can produce from its sources, in one place. */}
+      <div className="grid grid-cols-2 gap-2 border-b border-line p-3">
+        <Tile
+          icon={running === 'briefing' ? Spinner : SparkIcon}
+          label="Briefing"
+          hint="Kernfragen, belegt"
+          onClick={() => void createReport('briefing')}
+          disabled={running !== null || selectedSourceIds.length === 0}
+        />
+        <Tile
+          icon={running === 'faq' ? Spinner : FaqIcon}
+          label="FAQ"
+          hint="Fragen der Quellen"
+          onClick={() => void createReport('faq')}
+          disabled={running !== null || selectedSourceIds.length === 0}
+        />
+        <Tile
+          icon={MapIcon}
+          label="Themenkarte"
+          hint="Kernthemen im Überblick"
+          onClick={onOpenTopics}
+          className="col-span-2"
+        />
       </div>
 
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
         {actionError && <p className="text-sm text-danger">{actionError}</p>}
-        {briefing && (
+        {running && (
           <p className="flex items-center gap-2 rounded-xl bg-surface-muted px-3 py-2 text-xs text-muted">
-            <Spinner size={14} /> Briefing wird geschrieben – jede Kernfrage wird einzeln aus den
-            Quellen beantwortet. Das dauert etwa eine Minute.
+            <Spinner size={14} /> Jede Frage wird einzeln aus den Quellen beantwortet und belegt.
+            Das dauert etwa eine Minute.
           </p>
         )}
         {loadError && <p className="text-sm text-danger">{loadError}</p>}
@@ -172,6 +195,38 @@ export function NotesPanel({
       </div>
       {confirmDialog}
     </section>
+  )
+}
+
+function Tile({
+  icon: Icon,
+  label,
+  hint,
+  onClick,
+  disabled = false,
+  className = '',
+}: {
+  icon: (props: { size?: number }) => ReactNode
+  label: string
+  hint: string
+  onClick: () => void
+  disabled?: boolean
+  className?: string
+}) {
+  return (
+    <button
+      className={`flex items-center gap-2 rounded-xl border border-line px-3 py-2.5 text-left transition-colors hover:border-accent hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-line disabled:hover:bg-transparent ${className}`}
+      onClick={onClick}
+      disabled={disabled}
+    >
+      <span className="shrink-0 text-accent">
+        <Icon size={16} />
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate text-sm font-medium">{label}</span>
+        <span className="block truncate text-xs text-muted">{hint}</span>
+      </span>
+    </button>
   )
 }
 

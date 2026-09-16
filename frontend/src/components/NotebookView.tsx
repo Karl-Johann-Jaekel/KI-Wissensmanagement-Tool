@@ -6,11 +6,15 @@ import { ChatPanel, type ChatHandle } from './ChatPanel'
 import { CitationDrawer } from './CitationDrawer'
 import { usePrompt } from './Dialogs'
 import { BackIcon, EditIcon, Spinner } from './Icons'
-import { NotesPanel } from './NotesPanel'
+import { StudioPanel } from './StudioPanel'
 import { SourceGuidePanel } from './SourceGuidePanel'
 import { SourcePanel } from './SourcePanel'
+import { TopicMapPanel } from './TopicMapPanel'
 
-type Tab = 'sources' | 'chat' | 'notes'
+type Tab = 'sources' | 'chat' | 'studio'
+
+/** What the main column shows. The chat stays mounted behind the other two. */
+type Main = { kind: 'chat' } | { kind: 'source'; id: string } | { kind: 'topics' }
 const POLL_MS = 2000
 
 export function NotebookView({ notebookId, onBack }: { notebookId: string; onBack: () => void }) {
@@ -23,7 +27,7 @@ export function NotebookView({ notebookId, onBack }: { notebookId: string; onBac
   const { setData: setNotes } = notes
 
   const [tab, setTab] = useState<Tab>('chat')
-  const [openSourceId, setOpenSourceId] = useState<string | null>(null)
+  const [main, setMain] = useState<Main>({ kind: 'chat' })
   const [deselected, setDeselected] = useState<Set<string>>(new Set())
   const [citation, setCitation] = useState<Citation | null>(null)
   const [titleError, setTitleError] = useState<string | null>(null)
@@ -65,13 +69,21 @@ export function NotebookView({ notebookId, onBack }: { notebookId: string; onBac
     [setSources],
   )
 
-  // The open source keeps following the polled list, and closes when it is gone.
-  const openSource = (sources.data ?? []).find((s) => s.id === openSourceId) ?? null
+  // The open source keeps following the polled list, and falls away when it is gone.
+  const openSource =
+    main.kind === 'source' ? ((sources.data ?? []).find((s) => s.id === main.id) ?? null) : null
+  const openSourceId = openSource?.id ?? null
+
+  // on narrow screens the main column sits behind the chat tab
   const showSource = useCallback((id: string) => {
-    setOpenSourceId(id)
-    setTab('chat') // on narrow screens the main column is behind the chat tab
+    setMain({ kind: 'source', id })
+    setTab('chat')
   }, [])
-  const closeSource = useCallback(() => setOpenSourceId(null), [])
+  const showTopics = useCallback(() => {
+    setMain({ kind: 'topics' })
+    setTab('chat')
+  }, [])
+  const showChat = useCallback(() => setMain({ kind: 'chat' }), [])
 
   function toggleSource(id: string) {
     setDeselected((current) => {
@@ -104,8 +116,8 @@ export function NotebookView({ notebookId, onBack }: { notebookId: string; onBac
     }
   }
 
-  const askFromGuide = useCallback((question: string) => {
-    setOpenSourceId(null)
+  const ask = useCallback((question: string) => {
+    setMain({ kind: 'chat' })
     setTab('chat')
     chatRef.current?.ask(question)
   }, [])
@@ -147,7 +159,7 @@ export function NotebookView({ notebookId, onBack }: { notebookId: string; onBac
           [
             ['sources', 'Quellen'],
             ['chat', 'Chat'],
-            ['notes', 'Notizen'],
+            ['studio', 'Studio'],
           ] as const
         ).map(([name, label]) => (
           <button
@@ -177,19 +189,29 @@ export function NotebookView({ notebookId, onBack }: { notebookId: string; onBac
         {/* One grid cell for the main column: the chat stays mounted behind an open guide,
             so a running answer is not interrupted by looking something up. */}
         <div className={`${panelClass('chat')} min-h-0 flex-col`}>
+          {main.kind === 'topics' && (
+            <TopicMapPanel
+              className="flex-1"
+              notebook={notebook.data}
+              sources={sources.data}
+              onAsk={ask}
+              onOpenSource={showSource}
+              onClose={showChat}
+            />
+          )}
           {openSource && (
             <SourceGuidePanel
               className="flex-1"
               source={openSource}
-              onClose={closeSource}
-              onAsk={askFromGuide}
+              onClose={showChat}
+              onAsk={ask}
               onSourceChanged={upsertSource}
               onSourceRemoved={removeSource}
             />
           )}
           <ChatPanel
             ref={chatRef}
-            className={openSource ? 'hidden' : 'flex-1'}
+            className={main.kind === 'chat' ? 'flex-1' : 'hidden'}
             notebookId={notebookId}
             notebook={notebook.data}
             sources={sources.data}
@@ -198,14 +220,15 @@ export function NotebookView({ notebookId, onBack }: { notebookId: string; onBac
             onNoteCreated={addNote}
           />
         </div>
-        <NotesPanel
-          className={panelClass('notes')}
+        <StudioPanel
+          className={panelClass('studio')}
           notebookId={notebookId}
           notes={notes.data}
           loadError={notes.error}
           selectedSourceIds={selectedSourceIds}
           onChange={(update) => setNotes((list = []) => update(list))}
           onCitation={setCitation}
+          onOpenTopics={showTopics}
         />
       </div>
 
