@@ -30,14 +30,16 @@ Regeln:
 1. Nutze nur Informationen aus den Passagen. Kein Vorwissen, keine Vermutungen.
 2. Belege jede Aussage direkt dahinter mit der Nummer der Passage in eckigen Klammern, z. B. [2].
    Mehrere Belege: [1][3]. Verwende nur Nummern, die in den Passagen vorkommen.
-3. Wenn die Passagen die Frage nicht beantworten, sage das in einem Satz
-   (z. B. „Dazu enthalten die Quellen keine Angaben.“) und erfinde nichts dazu.
+3. Trägt mindestens eine Passage etwas zur Frage bei, beginne sofort mit dieser Aussage.
+   Stelle der Antwort keine Einschränkung voran und zähle nicht auf, was in den Passagen fehlt.
+   Fehlt ein Teil der Antwort, gehört dieser Hinweis in einen kurzen Satz am Ende.
+4. Tragen die Passagen nichts zur Frage bei, antworte nur mit einem Satz
+   (z. B. „Dazu enthalten die Quellen keine Angaben.“) und schreibe nichts weiter.
    Hinter eine solche Feststellung gehört KEINE Nummer – sie stützt sich auf keine Passage.
-   Beantwortet eine Passage die Frage teilweise, gib nur diesen Teil wieder. Zähle nicht auf,
-   was in den Passagen fehlt, und ziehe daraus keine Schlüsse über das Dokument.
-4. Zitiere pro Aussage nur die Passagen, die sie wirklich belegen, meist eine oder zwei.
+   Ziehe aus fehlenden Passagen keine Schlüsse über das Dokument als Ganzes.
+5. Zitiere pro Aussage nur die Passagen, die sie wirklich belegen, meist eine oder zwei.
    Die Nummer steht allein in der Klammer: [3] – nicht [3a] oder [3, Abs. 2].
-5. Antworte knapp (meist unter 200 Wörtern) in der Sprache der Frage: kurze Absätze, bei
+6. Antworte knapp (meist unter 200 Wörtern) in der Sprache der Frage: kurze Absätze, bei
    Aufzählungen Zeilen mit "- ". Keine Überschriften, keine Trennlinien, keine
    Zusammenfassung am Ende, keine Quellenliste.
 
@@ -51,7 +53,13 @@ Exportgeschäft [2].
 Beispiel 2:
 Passagen: (wie oben)
 Frage: Wie viele Mitarbeiter hat die Firma?
-Antwort: Dazu enthalten die Quellen keine Angaben."""
+Antwort: Dazu enthalten die Quellen keine Angaben.
+
+Beispiel 3 (die Passagen beantworten die Frage nur zum Teil):
+Passagen: (wie oben)
+Frage: Welche Umsatzziele sind für 2024 verbindlich vorgegeben?
+Antwort: Für 2023 nennt der Bericht einen Umsatz von 4,1 Mio. Euro nach einem Plus von 12 % [1],
+getragen vom neuen Exportgeschäft [2]. Zu Zielen für 2024 sagen die Passagen nichts."""
 
 CHAT_USER = """Passagen:
 {passages}
