@@ -31,6 +31,15 @@ Fehlt der Überblick noch, dient je eine Fragevorschlag pro Quelle als Ersatz.
 
 - Das Briefing erbt alle Garantien des Chats: keine erfundenen Belege, keine Aussagen ohne
   Passage, sichtbarer Hinweis, wenn die Quellen nichts hergeben.
+- Es erbt damit auch die Schwäche: taugt die Frage nicht, taugt der Abschnitt nicht. Der erste
+  Lauf gegen die Demo-Quellen lieferte in drei von vier Abschnitten „Dazu enthalten die Quellen
+  keine Angaben", weil der Überblick Synthesefragen gestellt hatte („Inwiefern unterscheiden sich
+  …?"). Solche Fragen beantwortet keine einzelne Textstelle. Behoben wurde das dort, wo es
+  entsteht — im Überblick-Prompt, der nun nach Fragen verlangt, die eine Quelle direkt
+  beantwortet, verteilt über die Quellen statt in einer Frage gebündelt. Das hilft dem Chat
+  genauso, weil dieselben Fragen dort als Einstieg angeboten werden.
+- Jeder Abschnitt bekommt doppelt so viele Passagen wie ein Chat-Turn: ihm fehlt die Rückfrage,
+  mit der ein Gespräch Lücken schließt.
 - Es kostet eine LLM-Anfrage je Kernfrage, höchstens vier. Der Aufruf ist synchron und dauert
   etwa eine Minute; die Oberfläche sagt das vorher an, statt einen stummen Spinner zu zeigen.
 - Das Dokument ist so strukturiert wie die Kernfragen. Eine freie Gliederung („Hintergrund,
