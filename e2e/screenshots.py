@@ -1,8 +1,9 @@
 """Regenerate the README screenshots from a running instance.
 
-Runs the same flow a reader sees in the README — open a source guide, ask a question, open a
-citation, save a note — and captures it in light, dark and mobile. Chat and notes of the target
-notebook are cleared before and after, so the shots are reproducible and nothing is left behind.
+Runs the same flow a reader sees in the README — notebook overview, source guide, a question
+with citations, a saved note and a briefing — and captures it in light, dark and mobile. Chat and
+notes of the target notebook are cleared before and after, so the shots are reproducible and
+nothing is left behind.
 
     docker compose -f docker-compose.yml -f docker-compose.override.yml \\
         -f e2e/docker-compose.e2e.yml run --rm \\
@@ -53,6 +54,11 @@ with sync_playwright() as p:
     page = context.new_page()
     page.goto(url)
 
+    step("notebook overview in the empty chat")
+    # wait for the sources to load: until then the chat shows its "no sources yet" state
+    expect(page.get_by_text("Was möchtest du wissen?")).to_be_visible(timeout=30_000)
+    page.screenshot(path=OUT / "overview.png")
+
     step("source guide in the main column")
     page.get_by_role("button", name=re.compile("^" + re.escape(GUIDE_SOURCE))).first.click()
     guide = page.get_by_role("region", name="Quelle", exact=True)
@@ -79,6 +85,14 @@ with sync_playwright() as p:
     expect(drawer.locator("mark")).to_be_visible()
     page.screenshot(path=OUT / "citation.png")
     page.keyboard.press("Escape")
+    expect(drawer).to_be_hidden()
+
+    step("briefing document")
+    notes.get_by_role("button", name="Briefing").click()
+    briefing = notes.locator("article", has_text="Briefing:")
+    expect(briefing).to_be_visible(timeout=240_000)
+    expect(briefing.get_by_role("button", name=CHIP).first).to_be_visible()
+    page.screenshot(path=OUT / "briefing.png")
 
     step("dark mode")
     dark = browser.new_context(viewport={"width": 1440, "height": 900}, color_scheme="dark")

@@ -336,13 +336,17 @@ function EmptyChat({
   onAsk: (question: string) => void
 }) {
   return (
-    <div className="mx-auto flex max-w-md flex-col items-center gap-3 py-8 text-center">
+    // The overview runs several lines: centred text is hard to read, so it gets a wider,
+    // left-aligned block while the rest of the empty state stays centred.
+    <div
+      className={`mx-auto flex flex-col items-center gap-3 py-8 text-center ${overview ? 'max-w-xl' : 'max-w-md'}`}
+    >
       <SparkIcon size={28} className="text-accent" />
       {hasSources ? (
         <>
           <p className="font-medium">Was möchtest du wissen?</p>
           {overview ? (
-            <p className="text-sm leading-relaxed text-muted">{overview}</p>
+            <p className="text-left text-sm leading-relaxed text-muted">{overview}</p>
           ) : (
             <p className="text-sm text-muted">
               Jede Aussage wird mit einem klickbaren Beleg aus deinen Quellen versehen.
