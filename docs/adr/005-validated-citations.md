@@ -14,6 +14,9 @@ Lässt man das Modell Quellen frei benennen, erfindet es Titel oder Seitenzahlen
   1. extrahiert alle Marker, auch Varianten wie `[1, 3]` oder `[2][4]`,
   2. verwirft Nummern, die nicht in der Kandidatenliste stehen, sowie Folgen von mehr als drei
      Belegen an einer Stelle (Modelle hängen sonst alle Passagen an „keine Angaben“),
+  2a. entfernt Klammern mit Ziffern, die keine Passagennummer sind — `[9(3)]`, `[Anhang 2]`,
+     aus dem Quelltext übernommene Verweise. Sie sehen wie ein Beleg aus, führen aber nirgendwo
+     hin. Klammern ohne Ziffer (`[sic]`) bleiben,
   3. nummeriert die gültigen in Reihenfolge des ersten Auftretens neu (`[1]`, `[2]`, …),
   4. liefert `citations[]` mit `chunk_id`, `source_id`, Titel, Seite und Snippet.
 - Liefert die Suche keine Passagen, antwortet das Backend ohne LLM-Aufruf mit einem

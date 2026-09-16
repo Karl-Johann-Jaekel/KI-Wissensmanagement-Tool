@@ -99,3 +99,28 @@ def test_strip_citations() -> None:
     assert strip_citations("Der Umsatz stieg [1][2], vor allem [3, 4] durch Export [5].") == (
         "Der Umsatz stieg, vor allem durch Export."
     )
+
+
+def test_bracketed_source_references_are_removed() -> None:
+    """A clause reference copied from the source looks like a citation but leads nowhere."""
+    ps = passages(2)
+
+    text, citations = resolve_citations(
+        "Die Maßnahmen sind in einer Anlage beschrieben [9(3)] und gelten ab 2026 [1]. "
+        "Näheres regelt [Anhang 2].",
+        ps,
+    )
+
+    assert "9(3)" not in text
+    assert "Anhang 2" not in text
+    assert (
+        text
+        == "Die Maßnahmen sind in einer Anlage beschrieben und gelten ab 2026 [1]. Näheres regelt."
+    )
+    assert [c.n for c in citations] == [1]
+
+
+def test_brackets_without_digits_survive() -> None:
+    """The rule is "bracket with a digit"; anything else would also swallow [sic]."""
+    text, _ = resolve_citations("Er schrieb „Wasser [sic] ist nass“ [1].", passages(1))
+    assert "[sic]" in text
