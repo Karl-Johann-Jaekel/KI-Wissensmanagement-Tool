@@ -1,6 +1,13 @@
+export type OverviewStatus = 'pending' | 'ready' | 'error'
+
 export interface Notebook {
   id: string
   title: string
+  /** What the sources cover together; built from the source guides. */
+  summary: string | null
+  key_questions: string[]
+  overview_status: OverviewStatus
+  overview_error: string | null
   created_at: string
   source_count: number
 }

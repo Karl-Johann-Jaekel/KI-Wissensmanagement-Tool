@@ -101,7 +101,17 @@ with sync_playwright() as p:
     expect(page.get_by_role("region", name="Chat")).to_be_hidden()
     page.screenshot(path=OUT / "01-guide.png")
 
+    step("notebook overview greets the empty chat")
+    guide.get_by_role("button", name="Zum Chat").click()
+    # built from the source guides once they are ready, so the UI has to poll for it
+    expect(page.get_by_text("Die Sammlung dreht sich um")).to_be_visible(timeout=60_000)
+    expect(
+        page.get_by_role("button", name="Welche Bausteine hat die Transformer-Architektur?")
+    ).to_be_visible()
+    page.screenshot(path=OUT / "01b-overview.png")
+
     step("rename source")
+    page.get_by_role("button", name=re.compile(r"öffnen$")).first.click()
     page.get_by_role("button", name="Umbenennen").click()
     rename_in_dialog(page, "Transformer-Paper")
     expect(page.get_by_role("button", name=re.compile(r"^Transformer-Paper"))).to_be_visible()
@@ -150,6 +160,15 @@ with sync_playwright() as p:
     notes.get_by_role("button", name="Speichern").click()
     expect(notes.get_by_text("Attention-Heads (bearbeitet)")).to_be_visible()
     page.screenshot(path=OUT / "04-notes.png")
+
+    step("briefing document")
+    notes.get_by_role("button", name="Briefing").click()
+    briefing = notes.locator("article", has_text="Briefing:")
+    expect(briefing).to_be_visible(timeout=120_000)
+    # one section per key question of the overview, each with working citations
+    expect(briefing.get_by_text("Welche Bausteine hat die Transformer-Architektur?")).to_be_visible()
+    expect(briefing.get_by_role("button", name=re.compile(r"^Quelle \d+:")).first).to_be_visible()
+    page.screenshot(path=OUT / "06-briefing.png")
 
     step("source filter")
     checkbox = page.get_by_label(re.compile("für Antworten verwenden"))

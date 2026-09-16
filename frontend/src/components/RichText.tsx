@@ -2,16 +2,19 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 import type { Citation } from '../types'
 
 /**
- * Minimal Markdown subset for model answers and notes: paragraphs, "- " / "1. " lists,
- * **bold**, and [n] citation chips. Avoids a Markdown dependency and never renders raw HTML.
+ * Minimal Markdown subset for model answers and notes: headings, paragraphs, "- " / "1. "
+ * lists, **bold**, and [n] citation chips. Avoids a Markdown dependency and never renders
+ * raw HTML.
  */
 
 type Block =
   | { kind: 'p'; lines: string[] }
+  | { kind: 'h'; text: string }
   | { kind: 'ul'; items: string[] }
   | { kind: 'ol'; items: string[] }
 
 const RULE = /^\s*([-*_])\1{2,}\s*$/
+const HEADING = /^\s*#{1,6}\s+(.*)$/
 const BULLET = /^\s*[-*•]\s+(.*)$/
 const NUMBERED = /^\s*\d+[.)]\s+(.*)$/
 const INLINE = /(\*\*[^*]+\*\*|\[\d+\])/g
@@ -19,11 +22,14 @@ const INLINE = /(\*\*[^*]+\*\*|\[\d+\])/g
 function parseBlocks(text: string): Block[] {
   const blocks: Block[] = []
   for (const line of text.split(/\r?\n/)) {
-    const bullet = BULLET.exec(line)
-    const numbered = bullet ? null : NUMBERED.exec(line)
+    const heading = HEADING.exec(line)
+    const bullet = heading ? null : BULLET.exec(line)
+    const numbered = heading || bullet ? null : NUMBERED.exec(line)
     const last = blocks.at(-1)
     if (RULE.test(line)) {
       blocks.push({ kind: 'p', lines: [] }) // horizontal rules only separate paragraphs
+    } else if (heading?.[1] !== undefined) {
+      blocks.push({ kind: 'h', text: heading[1] })
     } else if (bullet?.[1] !== undefined) {
       if (last?.kind === 'ul') last.items.push(bullet[1])
       else blocks.push({ kind: 'ul', items: [bullet[1]] })
@@ -33,13 +39,15 @@ function parseBlocks(text: string): Block[] {
     } else if (line.trim() === '') {
       if (last && !(last.kind === 'p' && last.lines.length === 0)) blocks.push({ kind: 'p', lines: [] })
     } else {
-      const heading = line.replace(/^#{1,6}\s+/, '')
-      const content = heading !== line ? `**${heading}**` : line
-      if (last?.kind === 'p') last.lines.push(content)
-      else blocks.push({ kind: 'p', lines: [content] })
+      if (last?.kind === 'p') last.lines.push(line)
+      else blocks.push({ kind: 'p', lines: [line] })
     }
   }
-  return blocks.filter((b) => (b.kind === 'p' ? b.lines.length > 0 : b.items.length > 0))
+  return blocks.filter((b) => {
+    if (b.kind === 'p') return b.lines.length > 0
+    if (b.kind === 'h') return b.text.trim().length > 0
+    return b.items.length > 0
+  })
 }
 
 interface RichTextProps {
@@ -70,6 +78,14 @@ export function RichText({ text, citations = [], onCitation }: RichTextProps) {
   return (
     <div className="space-y-2 text-sm leading-relaxed break-words">
       {parseBlocks(text).map((block, i) => {
+        if (block.kind === 'h') {
+          // A briefing is a document: its sections need more than bold text in a paragraph.
+          return (
+            <p key={i} className="pt-3 font-semibold first:pt-0">
+              {inline(block.text, String(i))}
+            </p>
+          )
+        }
         if (block.kind === 'ul' || block.kind === 'ol') {
           const Tag = block.kind
           return (

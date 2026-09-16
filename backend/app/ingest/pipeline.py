@@ -15,9 +15,10 @@ from app.config import get_settings
 from app.db import get_sessionmaker
 from app.ingest.chunker import chunk_segments
 from app.ingest.guide import build_guide
+from app.ingest.overview import SourceDigest, build_overview
 from app.ingest.parsers import ParsedDocument, ParseError
 from app.llm.provider import LLMError, LLMProvider
-from app.models import Chunk, Source
+from app.models import Chunk, Notebook, Source
 from app.retrieval.embed import Embedder
 
 log = logging.getLogger(__name__)
@@ -101,6 +102,53 @@ def generate_guide(source_id: uuid.UUID, llm: LLMProvider) -> None:
             key_topics=guide.key_topics,
             suggested_questions=guide.suggested_questions,
         )
+        notebook_id = source.notebook_id
+
+    refresh_overview(notebook_id, llm)
+
+
+def refresh_overview(notebook_id: uuid.UUID, llm: LLMProvider) -> None:
+    """Rebuild the notebook overview from the guides that are ready.
+
+    Called after every guide change, so the overview never describes a source set that no longer
+    exists. Without a single finished guide there is nothing to summarise and the notebook falls
+    back to its empty state.
+    """
+    with get_sessionmaker()() as db:
+        notebook = db.get(Notebook, notebook_id)
+        if notebook is None:
+            return
+        digests = [
+            SourceDigest(title=title, summary=summary or "", key_topics=list(topics or []))
+            for title, summary, topics in db.execute(
+                select(Source.title, Source.summary, Source.key_topics)
+                .where(
+                    Source.notebook_id == notebook_id,
+                    Source.status == "ready",
+                    Source.guide_status == "ready",
+                )
+                .order_by(Source.created_at)
+            ).all()
+        ]
+        if not digests:
+            _set_overview(db, notebook_id, status="pending", summary=None, key_questions=[])
+            return
+        try:
+            overview = build_overview(llm, notebook.title, digests)
+        except LLMError as exc:
+            _set_overview(db, notebook_id, status="error", error=str(exc))
+            return
+        except Exception:
+            log.exception("Overview generation failed for notebook %s", notebook_id)
+            _set_overview(db, notebook_id, status="error", error=GENERIC_ERROR)
+            return
+        _set_overview(
+            db,
+            notebook_id,
+            status="ready",
+            summary=overview.summary,
+            key_questions=overview.key_questions,
+        )
 
 
 def recover_interrupted(db: Session) -> None:
@@ -131,5 +179,16 @@ def _set_guide(
         update(Source)
         .where(Source.id == source_id)
         .values(guide_status=status, guide_error=error, **fields)
+    )
+    db.commit()
+
+
+def _set_overview(
+    db: Session, notebook_id: uuid.UUID, *, status: str, error: str | None = None, **fields: object
+) -> None:
+    db.execute(
+        update(Notebook)
+        .where(Notebook.id == notebook_id)
+        .values(overview_status=status, overview_error=error, **fields)
     )
     db.commit()

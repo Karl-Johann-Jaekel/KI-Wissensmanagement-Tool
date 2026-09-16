@@ -58,6 +58,28 @@ CHAT_USER = """Passagen:
 
 Frage: {question}"""
 
+OVERVIEW_SYSTEM = """Du fasst zusammen, worum es in einer Sammlung von Quellen gemeinsam geht.
+Antworte ausschließlich mit einem JSON-Objekt dieser Form:
+{"summary": "...", "key_questions": ["...", "..."]}
+
+Regeln:
+- Schreibe in der Sprache der Quellen, als reinen Text ohne Markdown.
+- summary: 3–5 Sätze. Was deckt die Sammlung als Ganzes ab, wo ergänzen oder überschneiden sich
+  die Quellen? Keine Aufzählung der Titel.
+- key_questions: 3–4 kurze Fragen (je höchstens 14 Wörter), die sich mit diesen Quellen
+  beantworten lassen. Bevorzuge Fragen, die mehr als eine Quelle berühren.
+- Stütze dich nur auf die gegebenen Zusammenfassungen. Erfinde nichts."""
+
+OVERVIEW_USER = """Notebook: {title}
+
+Quellen:
+{sources}"""
+
+BRIEFING_TITLE = "Briefing: {title}"
+
+BRIEFING_INTRO = """Dieses Briefing beantwortet die Kernfragen des Notebooks „{title}“
+ausschließlich aus den ausgewählten Quellen. Jede Aussage ist belegt."""
+
 NO_SOURCES_ANSWER = (
     "Dazu habe ich in den ausgewählten Quellen keine passenden Stellen gefunden. "
     "Prüfe, ob die richtigen Quellen ausgewählt und fertig verarbeitet sind."

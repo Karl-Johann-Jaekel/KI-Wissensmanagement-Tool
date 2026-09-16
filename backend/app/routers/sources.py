@@ -20,7 +20,7 @@ from app.config import Settings, get_settings
 from app.db import get_db
 from app.deps import get_embedder, get_llm
 from app.ingest.parsers import PDF_EXTENSIONS, TEXT_EXTENSIONS, parse_upload
-from app.ingest.pipeline import generate_guide, ingest_source
+from app.ingest.pipeline import generate_guide, ingest_source, refresh_overview
 from app.ingest.url import fetch_url
 from app.llm.provider import LLMProvider
 from app.models import Chunk, Notebook, Source
@@ -150,9 +150,15 @@ def rename_source(source_id: uuid.UUID, payload: SourceUpdate, db: DB) -> Source
 
 
 @router.delete("/sources/{source_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_source(source_id: uuid.UUID, db: DB) -> Response:
-    db.delete(get_or_404(db, Source, source_id))
+def delete_source(
+    source_id: uuid.UUID, background: BackgroundTasks, db: DB, llm: LLMDep
+) -> Response:
+    source = get_or_404(db, Source, source_id)
+    notebook_id = source.notebook_id
+    db.delete(source)
     db.commit()
+    # the notebook overview describes a source set that just changed
+    background.add_task(refresh_overview, notebook_id, llm)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

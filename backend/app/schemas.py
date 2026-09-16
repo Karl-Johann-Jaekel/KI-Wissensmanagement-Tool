@@ -21,6 +21,10 @@ class NotebookUpdate(BaseModel):
 class NotebookOut(ORMModel):
     id: uuid.UUID
     title: str
+    summary: str | None = None
+    key_questions: list[str] = []
+    overview_status: Literal["pending", "ready", "error"] = "pending"
+    overview_error: str | None = None
     created_at: datetime
     source_count: int = 0
 
@@ -92,6 +96,10 @@ class ChatResponse(BaseModel):
 
 
 # --- notes ---
+class BriefingRequest(BaseModel):
+    source_ids: list[uuid.UUID] | None = None  # None = all ready sources
+
+
 class NoteCreate(BaseModel):
     title: str = Field(min_length=1, max_length=300)
     content: str = Field(max_length=50_000)

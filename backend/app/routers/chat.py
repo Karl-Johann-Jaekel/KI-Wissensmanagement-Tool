@@ -64,18 +64,20 @@ def chat(
     get_or_404(db, Notebook, notebook_id)
     question = payload.question.strip()
     history = _recent_history(db, notebook_id)
-    passages = _retrieve(db, notebook_id, question, payload.source_ids, embedder, settings, history)
+    passages = retrieve_passages(
+        db, notebook_id, question, payload.source_ids, embedder, settings, history
+    )
 
     citations: list[Citation] = []
     if not passages:
         answer = prompts.NO_SOURCES_ANSWER
     else:
         try:
-            raw = llm.complete(_build_messages(question, passages, history))
+            raw = llm.complete(build_answer_messages(question, passages, history))
         except LLMError as exc:
             raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
-        answer, citations = _finish(raw, passages)
-    return _persist(db, notebook_id, question, answer, citations)
+        answer, citations = validate_answer(raw, passages)
+    return persist_exchange(db, notebook_id, question, answer, citations)
 
 
 @router.post("/notebooks/{notebook_id}/chat/stream")
@@ -117,7 +119,9 @@ def _answer_events(
     with get_sessionmaker()() as db:
         try:
             history = _recent_history(db, notebook_id)
-            passages = _retrieve(db, notebook_id, question, source_ids, embedder, settings, history)
+            passages = retrieve_passages(
+                db, notebook_id, question, source_ids, embedder, settings, history
+            )
             yield _event(
                 type="passages",
                 count=len(passages),
@@ -130,12 +134,12 @@ def _answer_events(
                 yield _event(type="delta", text=answer)
             else:
                 raw = ""
-                for piece in llm.stream(_build_messages(question, passages, history)):
+                for piece in llm.stream(build_answer_messages(question, passages, history)):
                     raw += piece
                     yield _event(type="delta", text=piece)
-                answer, citations = _finish(raw, passages)
+                answer, citations = validate_answer(raw, passages)
 
-            response = _persist(db, notebook_id, question, answer, citations)
+            response = persist_exchange(db, notebook_id, question, answer, citations)
             yield _event(type="done", **response.model_dump(mode="json"))
         except LLMError as exc:
             yield _event(type="error", detail=str(exc))
@@ -149,7 +153,7 @@ def _event(**payload: object) -> str:
     return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
 
-def _retrieve(
+def retrieve_passages(
     db: Session,
     notebook_id: uuid.UUID,
     question: str,
@@ -158,7 +162,10 @@ def _retrieve(
     settings: Settings,
     history: list[Message],
 ) -> list[Passage]:
-    """Top passages for the question, or nothing when no source is selected."""
+    """Top passages for the question, or nothing when no source is selected.
+
+    Public because the briefing generator answers its questions through the same path.
+    """
     if source_ids is not None and not source_ids:
         return []
     retrieval_query = _retrieval_query(question, history)
@@ -184,12 +191,12 @@ def _retrieve(
     ]
 
 
-def _finish(raw: str, passages: list[Passage]) -> tuple[str, list[Citation]]:
+def validate_answer(raw: str, passages: list[Passage]) -> tuple[str, list[Citation]]:
     answer, resolved = resolve_citations(raw, passages)
     return answer or prompts.NO_SOURCES_ANSWER, [Citation(**vars(c)) for c in resolved]
 
 
-def _persist(
+def persist_exchange(
     db: Session,
     notebook_id: uuid.UUID,
     question: str,
@@ -231,7 +238,7 @@ def _retrieval_query(question: str, history: list[Message]) -> str:
     return f"{previous} {question}" if previous else question
 
 
-def _build_messages(
+def build_answer_messages(
     question: str, passages: list[Passage], history: list[Message]
 ) -> list[ChatMessage]:
     messages: list[ChatMessage] = [{"role": "system", "content": prompts.CHAT_SYSTEM}]

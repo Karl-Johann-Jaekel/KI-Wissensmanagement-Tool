@@ -1,17 +1,21 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
+from app.deps import get_llm
+from app.ingest.pipeline import refresh_overview
+from app.llm.provider import LLMProvider
 from app.models import Notebook, Source
 from app.routers.common import get_or_404
 from app.schemas import NotebookCreate, NotebookOut, NotebookUpdate
 
 router = APIRouter(prefix="/notebooks", tags=["notebooks"])
 DB = Annotated[Session, Depends(get_db)]
+LLMDep = Annotated[LLMProvider, Depends(get_llm)]
 
 
 def _source_count(db: Session, notebook_id: uuid.UUID) -> int:
@@ -52,6 +56,23 @@ def rename_notebook(notebook_id: uuid.UUID, payload: NotebookUpdate, db: DB) -> 
     notebook = get_or_404(db, Notebook, notebook_id)
     notebook.title = payload.title.strip()
     db.commit()
+    return NotebookOut.model_validate(notebook).model_copy(
+        update={"source_count": _source_count(db, notebook_id)}
+    )
+
+
+@router.post(
+    "/{notebook_id}/overview", response_model=NotebookOut, status_code=status.HTTP_202_ACCEPTED
+)
+def regenerate_overview(
+    notebook_id: uuid.UUID, background: BackgroundTasks, db: DB, llm: LLMDep
+) -> NotebookOut:
+    """Rebuild the overview on demand, e.g. after the LLM was rate-limited."""
+    notebook = get_or_404(db, Notebook, notebook_id)
+    notebook.overview_status = "pending"
+    notebook.overview_error = None
+    db.commit()
+    background.add_task(refresh_overview, notebook_id, llm)
     return NotebookOut.model_validate(notebook).model_copy(
         update={"source_count": _source_count(db, notebook_id)}
     )
