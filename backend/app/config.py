@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     embedding_cache_dir: str = "/opt/models"
 
     max_upload_mb: int = 20
+    # How many uploads are parsed and embedded at the same time; see pipeline._ingest_slots.
+    ingest_concurrency: int = Field(default=1, ge=1)
     chunk_max_chars: int = 1800
     chunk_overlap_chars: int = 300
     retrieval_candidates: int = 20

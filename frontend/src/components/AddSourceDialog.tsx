@@ -76,6 +76,11 @@ export function AddSourceDialog({ notebookId, onAdded, onClose }: Props) {
         </div>
 
         <div className="space-y-5 p-4">
+          <p className="rounded-xl bg-surface-muted px-3 py-2 text-xs leading-relaxed text-muted">
+            Nur öffentliche, vertrauenswürdige Dokumente: Inhalte gehen an Mistral AI und können im
+            kostenlosen Tarif zur Modellverbesserung genutzt werden. Keine personenbezogenen oder
+            vertraulichen Daten.
+          </p>
           <div
             onDragOver={(e) => {
               e.preventDefault()

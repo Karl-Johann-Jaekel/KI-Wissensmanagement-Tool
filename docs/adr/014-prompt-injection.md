@@ -73,7 +73,7 @@ Gleicher Test danach:
   oft mit einem unbelegten Einleitungssatz („Artikel 50 regelt …, insbesondere:"). Die Warnung
   erschiene dauernd bei korrekten Antworten und wäre auf genau diesen Test zugeschnitten.
 - Deshalb bleibt die organisatorische Regel wichtig: nur vertrauenswürdige, öffentliche
-  Dokumente.
+  Dokumente. Zugangsseite und Upload-Dialog sagen das.
 - Die Ausgabe des Modells löst nirgends Aktionen aus. Eine Injection kann eine Antwort verfälschen,
   aber nichts ändern, löschen oder abrufen.
 

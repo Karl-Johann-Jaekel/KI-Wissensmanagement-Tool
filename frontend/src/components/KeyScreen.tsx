@@ -32,6 +32,12 @@ export function KeyScreen({ onUnlocked }: { onUnlocked: () => void }) {
             Demo-Instanz. Bitte den Zugangsschlüssel aus der E-Mail eingeben.
           </p>
         </div>
+        <p className="rounded-xl bg-surface-muted px-3 py-2 text-xs leading-relaxed text-muted">
+          <strong className="font-medium text-fg">Datenschutz:</strong> Hochgeladene Inhalte gehen
+          zur Beantwortung an Mistral AI und können im kostenlosen Tarif zur Verbesserung der Modelle
+          genutzt werden. Bitte nur öffentliche Dokumente verwenden – keine personenbezogenen oder
+          vertraulichen Daten.
+        </p>
         <input
           className="input"
           type="password"
