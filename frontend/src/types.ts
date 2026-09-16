@@ -64,6 +64,8 @@ export interface Note {
   notebook_id: string
   title: string
   content: string
+  /** Copied from the answer a note was saved from; empty for hand-written notes. */
+  citations: Citation[]
   created_at: string
   updated_at: string
 }

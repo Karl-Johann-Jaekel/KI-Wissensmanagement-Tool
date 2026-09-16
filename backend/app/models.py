@@ -87,6 +87,8 @@ class Note(Base):
     )
     title: Mapped[str] = mapped_column(String(300))
     content: Mapped[str] = mapped_column(Text)
+    # Copied from the answer this note was saved from, so its `[n]` markers stay clickable.
+    citations: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
