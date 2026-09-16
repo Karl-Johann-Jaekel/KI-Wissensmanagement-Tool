@@ -31,6 +31,12 @@ class FakeEmbedder:
         return self._vector(text)
 
 
+OVERVIEW = {
+    "summary": "Die Quellen behandeln gemeinsam ein Thema.",
+    "key_questions": ["Übergreifende Frage 1?", "Übergreifende Frage 2?"],
+}
+
+
 class FakeLLM:
     """Returns JSON for json_mode calls and a scripted answer for chat calls."""
 
@@ -47,6 +53,8 @@ class FakeLLM:
     ) -> str:
         self.calls.append((messages, json_mode))
         if json_mode:
+            if messages[0]["content"].startswith("Du fasst zusammen"):
+                return json.dumps(OVERVIEW)
             return json.dumps(
                 {
                     "summary": "Eine kurze Zusammenfassung.",

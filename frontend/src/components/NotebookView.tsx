@@ -19,6 +19,7 @@ export function NotebookView({ notebookId, onBack }: { notebookId: string; onBac
   const notes = useLoader(() => api.listNotes(notebookId), `notes-${notebookId}`)
 
   const { reload: reloadSources, setData: setSources } = sources
+  const { reload: reloadNotebook } = notebook
   const { setData: setNotes } = notes
 
   const [tab, setTab] = useState<Tab>('chat')
@@ -29,15 +30,22 @@ export function NotebookView({ notebookId, onBack }: { notebookId: string; onBac
   const [prompt, promptDialog] = usePrompt()
   const chatRef = useRef<ChatHandle>(null)
 
-  // Poll while ingestion or guide generation is running.
-  const busy = sources.data?.some(
+  // Poll while ingestion, a guide or the notebook overview is still being produced.
+  const sourcesBusy = sources.data?.some(
     (s) => s.status === 'processing' || (s.status === 'ready' && s.guide_status === 'pending'),
   )
+  const overviewBusy =
+    notebook.data?.overview_status === 'pending' &&
+    (sources.data ?? []).some((s) => s.guide_status === 'ready')
+  const busy = sourcesBusy || overviewBusy
   useEffect(() => {
     if (!busy) return
-    const timer = window.setInterval(() => void reloadSources(), POLL_MS)
+    const timer = window.setInterval(() => {
+      void reloadSources()
+      void reloadNotebook()
+    }, POLL_MS)
     return () => window.clearInterval(timer)
-  }, [busy, reloadSources])
+  }, [busy, reloadSources, reloadNotebook])
 
   const selectedSourceIds = useMemo(
     () => (sources.data ?? []).filter((s) => s.status === 'ready' && !deselected.has(s.id)).map((s) => s.id),
@@ -183,6 +191,7 @@ export function NotebookView({ notebookId, onBack }: { notebookId: string; onBac
             ref={chatRef}
             className={openSource ? 'hidden' : 'flex-1'}
             notebookId={notebookId}
+            notebook={notebook.data}
             sources={sources.data}
             selectedSourceIds={selectedSourceIds}
             onCitation={setCitation}
@@ -194,6 +203,7 @@ export function NotebookView({ notebookId, onBack }: { notebookId: string; onBac
           notebookId={notebookId}
           notes={notes.data}
           loadError={notes.error}
+          selectedSourceIds={selectedSourceIds}
           onChange={(update) => setNotes((list = []) => update(list))}
           onCitation={setCitation}
         />

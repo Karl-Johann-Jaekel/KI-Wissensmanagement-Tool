@@ -9,7 +9,7 @@ import {
 } from 'react'
 import { ApiError, api } from '../api'
 import { errorText, useLoader } from '../hooks'
-import type { ChatResponse, Citation, Message, Note, Source } from '../types'
+import type { ChatResponse, Citation, Message, Note, Notebook, Source } from '../types'
 import { useConfirm } from './Dialogs'
 import { CopyIcon, NoteIcon, RefreshIcon, SendIcon, SparkIcon, Spinner, TrashIcon } from './Icons'
 import { RichText } from './RichText'
@@ -21,6 +21,7 @@ export interface ChatHandle {
 interface Props {
   ref?: Ref<ChatHandle>
   notebookId: string
+  notebook: Notebook | undefined
   sources: Source[] | undefined
   selectedSourceIds: string[]
   onCitation: (citation: Citation) => void
@@ -31,6 +32,7 @@ interface Props {
 export function ChatPanel({
   ref,
   notebookId,
+  notebook,
   sources,
   selectedSourceIds,
   onCitation,
@@ -48,9 +50,13 @@ export function ChatPanel({
 
   const readySources = sources?.filter((s) => s.status === 'ready') ?? []
   const canAsk = readySources.length > 0 && selectedSourceIds.length > 0
-  const suggestions = pickAcrossSources(
-    readySources.filter((s) => selectedSourceIds.includes(s.id)).map((s) => s.suggested_questions),
-  )
+  // Questions that span the notebook come first; per-source questions fill the rest.
+  const suggestions = [
+    ...(notebook?.key_questions ?? []),
+    ...pickAcrossSources(
+      readySources.filter((s) => selectedSourceIds.includes(s.id)).map((s) => s.suggested_questions),
+    ),
+  ].slice(0, 4)
 
   // Follow the answer while it is written, but stop fighting a reader who scrolled up.
   useEffect(() => {
@@ -167,6 +173,7 @@ export function ChatPanel({
           <EmptyChat
             hasSources={readySources.length > 0}
             processing={sources?.some((s) => s.status === 'processing') ?? false}
+            overview={notebook?.overview_status === 'ready' ? notebook.summary : null}
             suggestions={suggestions}
             onAsk={(q) => void ask(q)}
           />
@@ -318,11 +325,13 @@ function CopyButton({ text }: { text: string }) {
 function EmptyChat({
   hasSources,
   processing,
+  overview,
   suggestions,
   onAsk,
 }: {
   hasSources: boolean
   processing: boolean
+  overview: string | null
   suggestions: string[]
   onAsk: (question: string) => void
 }) {
@@ -332,7 +341,13 @@ function EmptyChat({
       {hasSources ? (
         <>
           <p className="font-medium">Was möchtest du wissen?</p>
-          <p className="text-sm text-muted">Jede Aussage wird mit einem klickbaren Beleg aus deinen Quellen versehen.</p>
+          {overview ? (
+            <p className="text-sm leading-relaxed text-muted">{overview}</p>
+          ) : (
+            <p className="text-sm text-muted">
+              Jede Aussage wird mit einem klickbaren Beleg aus deinen Quellen versehen.
+            </p>
+          )}
           {suggestions.length > 0 && (
             <ul className="mt-2 w-full space-y-2">
               {suggestions.map((question) => (

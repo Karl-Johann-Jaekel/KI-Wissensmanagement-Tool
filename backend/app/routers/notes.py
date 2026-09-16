@@ -5,10 +5,15 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.briefing import BriefingError, build_briefing
+from app.config import Settings, get_settings
 from app.db import get_db
+from app.deps import get_embedder, get_llm
+from app.llm.provider import LLMError, LLMProvider
 from app.models import Message, Note, Notebook
+from app.retrieval.embed import Embedder
 from app.routers.common import get_or_404
-from app.schemas import NoteCreate, NoteOut, NoteUpdate
+from app.schemas import BriefingRequest, NoteCreate, NoteOut, NoteUpdate
 
 router = APIRouter(tags=["notes"])
 DB = Annotated[Session, Depends(get_db)]
@@ -69,6 +74,40 @@ def create_note_from_message(notebook_id: uuid.UUID, message_id: uuid.UUID, db: 
         title=title,
         content=message.content,
         citations=message.citations,
+    )
+    db.add(note)
+    db.commit()
+    db.refresh(note)
+    return note
+
+
+@router.post(
+    "/notebooks/{notebook_id}/briefing", response_model=NoteOut, status_code=status.HTTP_201_CREATED
+)
+def create_briefing(
+    notebook_id: uuid.UUID,
+    payload: BriefingRequest,
+    db: DB,
+    embedder: Annotated[Embedder, Depends(get_embedder)],
+    llm: Annotated[LLMProvider, Depends(get_llm)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> Note:
+    """Answer the notebook's key questions from the sources and save the result as a note."""
+    notebook = get_or_404(db, Notebook, notebook_id)
+    try:
+        title, content, citations = build_briefing(
+            db, notebook, payload.source_ids, embedder, llm, settings
+        )
+    except BriefingError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    except LLMError as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
+
+    note = Note(
+        notebook_id=notebook_id,
+        title=title,
+        content=content,
+        citations=[c.model_dump(mode="json") for c in citations],
     )
     db.add(note)
     db.commit()

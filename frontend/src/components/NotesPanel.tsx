@@ -3,13 +3,14 @@ import { api } from '../api'
 import { errorText } from '../hooks'
 import type { Citation, Note } from '../types'
 import { useConfirm } from './Dialogs'
-import { CloseIcon, EditIcon, NoteIcon, PlusIcon, Spinner, TrashIcon } from './Icons'
+import { CloseIcon, EditIcon, NoteIcon, PlusIcon, SparkIcon, Spinner, TrashIcon } from './Icons'
 import { RichText } from './RichText'
 
 interface Props {
   notebookId: string
   notes: Note[] | undefined
   loadError: string | null
+  selectedSourceIds: string[]
   onChange: (update: (notes: Note[]) => Note[]) => void
   onCitation: (citation: Citation) => void
   className?: string
@@ -25,6 +26,7 @@ export function NotesPanel({
   notebookId,
   notes,
   loadError,
+  selectedSourceIds,
   onChange,
   onCitation,
   className = '',
@@ -32,7 +34,22 @@ export function NotesPanel({
   const [editing, setEditing] = useState<string | 'new' | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [briefing, setBriefing] = useState(false)
   const [confirm, confirmDialog] = useConfirm()
+
+  async function createBriefing() {
+    setActionError(null)
+    setBriefing(true)
+    try {
+      const note = await api.createBriefing(notebookId, selectedSourceIds)
+      onChange((list) => [note, ...list])
+      setOpenId(note.id)
+    } catch (err) {
+      setActionError(errorText(err))
+    } finally {
+      setBriefing(false)
+    }
+  }
 
   async function save(note: Note | null, title: string, content: string) {
     setActionError(null)
@@ -71,13 +88,33 @@ export function NotesPanel({
     <section className={`panel ${className}`} aria-label="Notizen">
       <div className="panel-header">
         <h2 className="font-medium">Notizen</h2>
-        <button className="btn-ghost" onClick={() => setEditing('new')} disabled={editing === 'new'}>
-          <PlusIcon /> Neu
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            className="btn-ghost"
+            onClick={() => void createBriefing()}
+            disabled={briefing || selectedSourceIds.length === 0}
+            title="Beantwortet die Kernfragen des Notebooks aus den ausgewählten Quellen"
+          >
+            {briefing ? <Spinner size={14} /> : <SparkIcon size={14} />} Briefing
+          </button>
+          <button
+            className="btn-ghost"
+            onClick={() => setEditing('new')}
+            disabled={editing === 'new'}
+          >
+            <PlusIcon /> Neu
+          </button>
+        </div>
       </div>
 
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
         {actionError && <p className="text-sm text-danger">{actionError}</p>}
+        {briefing && (
+          <p className="flex items-center gap-2 rounded-xl bg-surface-muted px-3 py-2 text-xs text-muted">
+            <Spinner size={14} /> Briefing wird geschrieben – jede Kernfrage wird einzeln aus den
+            Quellen beantwortet. Das dauert etwa eine Minute.
+          </p>
+        )}
         {loadError && <p className="text-sm text-danger">{loadError}</p>}
         {editing === 'new' && (
           <NoteEditor onSave={(t, c) => save(null, t, c)} onCancel={() => setEditing(null)} />

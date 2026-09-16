@@ -1,6 +1,6 @@
 """Mistral-compatible stand-in for browser E2E runs (never used in production).
 
-- json_mode requests → a fixed source guide
+- json_mode requests → a fixed source guide, or the notebook overview
 - map-step requests → a fixed section summary
 - chat requests → bullet points quoting the first passages with [n] markers, plus a fake
   academic reference "[2, 19]" that the backend must strip; questions about "Wetter" get the
@@ -16,6 +16,17 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 PASSAGE = re.compile(
     r"\[(\d+)\] \(Quelle: [^)]*\)\n(.+?)(?=\n\n\[\d+\] \(Quelle|\n\nFrage:)", re.S
 )
+
+OVERVIEW = {
+    "summary": (
+        "Die Sammlung dreht sich um die Transformer-Architektur und ihre Ergebnisse bei der "
+        "maschinellen Übersetzung."
+    ),
+    "key_questions": [
+        "Welche Bausteine hat die Transformer-Architektur?",
+        "Wie schneidet das Modell gegen frühere Ansätze ab?",
+    ],
+}
 
 GUIDE = {
     "summary": (
@@ -49,7 +60,8 @@ class Handler(BaseHTTPRequestHandler):
         body = json.loads(self.rfile.read(int(self.headers["content-length"])))
         messages = body["messages"]
         if body.get("response_format"):
-            content = json.dumps(GUIDE)
+            overview = messages[0]["content"].startswith("Du fasst zusammen")
+            content = json.dumps(OVERVIEW if overview else GUIDE)
         elif messages[0]["content"].startswith("Fasse den folgenden Abschnitt"):
             content = "Abschnittszusammenfassung."
         else:

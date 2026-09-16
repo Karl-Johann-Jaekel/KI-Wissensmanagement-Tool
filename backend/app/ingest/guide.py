@@ -19,9 +19,19 @@ DIRECT_MAX_CHARS = 60_000
 _EMPHASIS = re.compile(r"\*\*|__|`")
 
 
-def _plain(value: object) -> str:
-    """The guide is shown as plain text; models still like to add Markdown emphasis."""
+def plain(value: object) -> str:
+    """Guides and overviews are shown as plain text; models still like to add Markdown."""
     return _EMPHASIS.sub("", str(value)).strip()
+
+
+def parse_json_object(raw: str, label: str) -> object:
+    """Model output as JSON, tolerating a ```json fence around it."""
+    cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw.strip())
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError as exc:
+        log.warning("%s JSON invalid: %s", label, raw[:300])
+        raise LLMError(f"Der {label} hatte ein ungültiges Format.") from exc
 
 
 class Guide(BaseModel):
@@ -32,14 +42,14 @@ class Guide(BaseModel):
     @field_validator("summary", mode="before")
     @classmethod
     def _clean_summary(cls, value: object) -> str:
-        return _plain(value)
+        return plain(value)
 
     @field_validator("key_topics", "suggested_questions", mode="before")
     @classmethod
     def _clean_list(cls, value: object) -> list[str]:
         if not isinstance(value, list):
             return []
-        return [_plain(v) for v in value if _plain(v)]
+        return [plain(v) for v in value if plain(v)]
 
 
 def build_guide(llm: LLMProvider, title: str, chunks: list[str]) -> Guide:
@@ -93,9 +103,8 @@ def _summarize_group(llm: LLMProvider, group: list[str]) -> str:
 
 
 def parse_guide(raw: str) -> Guide:
-    cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw.strip())
     try:
-        return Guide.model_validate(json.loads(cleaned))
-    except (json.JSONDecodeError, ValidationError) as exc:
-        log.warning("Guide JSON invalid: %s", raw[:300])
+        return Guide.model_validate(parse_json_object(raw, "Quellen-Guide"))
+    except ValidationError as exc:
+        log.warning("Guide JSON incomplete: %s", raw[:300])
         raise LLMError("Der Quellen-Guide hatte ein ungültiges Format.") from exc

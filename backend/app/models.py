@@ -19,6 +19,11 @@ class Notebook(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     title: Mapped[str] = mapped_column(String(200))
+    # Overview across all ready sources, rebuilt whenever a source guide changes.
+    summary: Mapped[str | None] = mapped_column(Text, default=None)
+    key_questions: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    overview_status: Mapped[str] = mapped_column(String(12), default="pending")
+    overview_error: Mapped[str | None] = mapped_column(Text, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     sources: Mapped[list["Source"]] = relationship(
