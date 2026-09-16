@@ -40,6 +40,23 @@ als hunderte Abschnitte mit „Artikel“, und Embeddings unterscheiden Artikeln
   direkt danach dessen Folgeabschnitt mit dem eigentlichen Normtext, dann bloße Querverweise.
 - Ergebnis: Antwort mit Beleg auf S. 123 (Art. 50 Abs. 1 und 2).
 
+## Nachtrag: gemessen
+
+Nachträglich mit 17 Fragen gegen das Demo-Notebook gemessen, die erwarteten Seiten in den
+gespeicherten Abschnitten nachgeschlagen
+([README → Retrieval-Qualität](../../README.md#retrieval-qualität)):
+
+| Rangliste | hit@8 | MRR@8 |
+|---|---|---|
+| Vektor | 71 % | 0,53 |
+| Volltext | 59 % | 0,26 |
+| Normverweis (3 Fragen mit Artikelnummer) | 100 % | 0,47 |
+| RRF | **94 %** | **0,59** |
+
+Die Entscheidung trägt: die Fusion schlägt die beste Einzelliste um 23 Prozentpunkte. Die
+Volltextsuche ist allein die schwächste Liste, rettet aber zwei Fragen, an denen die Vektorsuche
+scheitert. Offener Fehlschlag: die Bußgeldbeträge (S. 168/169) erreicht keine Liste.
+
 ## Verworfene Alternativen
 
 - Nur Vektorsuche: schwach bei Eigennamen und Codes.
