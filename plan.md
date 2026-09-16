@@ -214,11 +214,12 @@ Vorbereitung: Browser-Tab mit vorindiziertem Demo-Notebook offen, zweiter Tab le
 
 ## 10. Abgabe-Checkliste
 
-- [ ] Repo public, README mit Live-Link, Setup in 3 Befehlen, Architektur-Skizze, Screenshots
-- [ ] `.env.example` vollständig, keine Secrets im Repo (`git log -p | grep -i key` prüfen)
+- [x] Repo public, README mit Live-Link, Setup in 3 Befehlen, Architektur-Skizze, Screenshots
+- [x] `.env.example` vollständig, keine Secrets im Repo (`git log -p | grep -i key` prüfen)
+- [x] `docs/adr/` mit 13 ADRs, `plan.md`, `CLAUDE.md` im Repo
+- [x] Tests grün (`pytest`, 128; im CI 127 + 1 übersprungen, weil `test_embed` das vorgeladene Modell braucht), Frontend-Build und `oxlint` ohne Befund, Browser-E2E über 20 Schritte
+- [x] CI: GitHub Actions prüft bei jedem Push Backend (ruff, mypy, pytest) und Frontend (Build, Lint)
 - [ ] Live-URL aus Mobilfunknetz getestet, Access-Key in der Mail
-- [ ] `docs/adr/` mit 7 ADRs, `plan.md`, `CLAUDE.md` im Repo
-- [ ] Tests grün (`pytest`), Frontend-Build ohne Warnungen
 - [ ] Loom < 10 min, Link geprüft (öffentlich/mit Link zugänglich)
 - [ ] Antwort-Mail: Repo-Link, Live-Link + Access-Key, Loom-Link, 3 Sätze zu Scope-Entscheidung
 
