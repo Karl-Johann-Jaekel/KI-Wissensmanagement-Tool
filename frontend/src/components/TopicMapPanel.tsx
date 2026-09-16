@@ -7,12 +7,15 @@ import { CloseIcon, FileIcon, LinkIcon, SparkIcon } from './Icons'
  * the chat about that topic, so the map leads back into cited answers.
  */
 
-const ROW = 42 // height reserved per topic
+// Topic labels run long in German ("Technische Komponenten Embedding und Retriever"), so a
+// chip gets two lines and the row height follows.
+const ROW = 54 // height reserved per topic
 const GROUP_GAP = 18 // extra space between two sources
 const NOTEBOOK_X = 0
 const SOURCE_X = 232
 const TOPIC_X = 470
-const WIDTH = 760
+const TOPIC_WIDTH = 300
+const WIDTH = TOPIC_X + TOPIC_WIDTH
 
 interface Props {
   notebook: Notebook | undefined
@@ -126,11 +129,12 @@ export function TopicMapPanel({
                   {topics.map(({ topic, y: ty }) => (
                     <button
                       key={topic}
-                      className="absolute -translate-y-1/2 rounded-full border border-line bg-surface-muted px-3 py-1.5 text-left text-xs hover:border-accent hover:bg-accent-soft"
-                      style={{ left: TOPIC_X, top: ty, maxWidth: WIDTH - TOPIC_X }}
+                      className="absolute -translate-y-1/2 rounded-2xl border border-line bg-surface-muted px-3 py-1.5 text-left text-xs hover:border-accent hover:bg-accent-soft"
+                      style={{ left: TOPIC_X, top: ty, maxWidth: TOPIC_WIDTH }}
                       onClick={() => onAsk(`Was sagen die Quellen zu „${topic}“?`)}
+                      title={topic}
                     >
-                      <span className="line-clamp-1">{topic}</span>
+                      <span className="line-clamp-2">{topic}</span>
                     </button>
                   ))}
                 </div>
