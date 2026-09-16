@@ -103,6 +103,23 @@ export const ArrowRightIcon = (p: IconProps) => (
   </Icon>
 )
 
+export const FaqIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M9.2 9a2.8 2.8 0 015.4 1c0 2-2.6 2.5-2.6 4" />
+    <path d="M12 18h.01" />
+    <circle cx="12" cy="12" r="9" />
+  </Icon>
+)
+
+export const MapIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="5" cy="12" r="2.5" />
+    <circle cx="18" cy="6" r="2.5" />
+    <circle cx="18" cy="18" r="2.5" />
+    <path d="M7.5 11L15.5 6.8M7.5 13l8 4.2" />
+  </Icon>
+)
+
 export const SearchIcon = (p: IconProps) => (
   <Icon {...p}>
     <circle cx="11" cy="11" r="7" />

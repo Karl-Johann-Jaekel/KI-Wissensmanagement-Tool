@@ -1,4 +1,5 @@
 export type OverviewStatus = 'pending' | 'ready' | 'error'
+export type ReportKind = 'briefing' | 'faq'
 
 export interface Notebook {
   id: string

@@ -4,6 +4,7 @@ import type {
   Message,
   Note,
   Notebook,
+  ReportKind,
   Source,
 } from './types'
 
@@ -215,8 +216,11 @@ export const api = {
     request<Note>(`/notebooks/${notebookId}/notes`, json('POST', { title, content })),
   noteFromMessage: (notebookId: string, messageId: string) =>
     request<Note>(`/notebooks/${notebookId}/notes/from-message/${messageId}`, { method: 'POST' }),
-  createBriefing: (notebookId: string, sourceIds: string[]) =>
-    request<Note>(`/notebooks/${notebookId}/briefing`, json('POST', { source_ids: sourceIds })),
+  createReport: (notebookId: string, kind: ReportKind, sourceIds: string[]) =>
+    request<Note>(
+      `/notebooks/${notebookId}/reports`,
+      json('POST', { kind, source_ids: sourceIds }),
+    ),
   updateNote: (noteId: string, patch: { title?: string; content?: string }) =>
     request<Note>(`/notes/${noteId}`, json('PATCH', patch)),
   deleteNote: (noteId: string) => request<void>(`/notes/${noteId}`, { method: 'DELETE' }),

@@ -93,6 +93,11 @@ BRIEFING_TITLE = "Briefing: {title}"
 BRIEFING_INTRO = """Dieses Briefing beantwortet die Kernfragen des Notebooks „{title}“
 ausschließlich aus den ausgewählten Quellen. Jede Aussage ist belegt."""
 
+FAQ_TITLE = "FAQ: {title}"
+
+FAQ_INTRO = """Häufige Fragen zu den Quellen von „{title}“, beantwortet aus den Quellen selbst.
+Die Fragen stammen aus den Quellen-Guides, jede Antwort ist belegt."""
+
 NO_SOURCES_ANSWER = (
     "Dazu habe ich in den ausgewählten Quellen keine passenden Stellen gefunden. "
     "Prüfe, ob die richtigen Quellen ausgewählt und fertig verarbeitet sind."

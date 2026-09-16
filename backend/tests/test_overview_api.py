@@ -73,7 +73,7 @@ def test_briefing_answers_the_key_questions_with_citations(
     source_id = _upload(client, notebook_id, "bio.txt", "Pflanzen betreiben Photosynthese.")
     fake_llm.answer = "Pflanzen nutzen Licht [1]."
 
-    response = client.post(f"/api/notebooks/{notebook_id}/briefing", json={})
+    response = client.post(f"/api/notebooks/{notebook_id}/reports", json={"kind": "briefing"})
     assert response.status_code == 201, response.text
     note = response.json()
 
@@ -90,8 +90,8 @@ def test_briefing_answers_the_key_questions_with_citations(
     assert note["id"] in [n["id"] for n in client.get(f"/api/notebooks/{notebook_id}/notes").json()]
 
 
-def test_briefing_without_sources_is_refused(client: TestClient, notebook_id: str) -> None:
-    response = client.post(f"/api/notebooks/{notebook_id}/briefing", json={})
+def test_report_without_sources_is_refused(client: TestClient, notebook_id: str) -> None:
+    response = client.post(f"/api/notebooks/{notebook_id}/reports", json={})
     assert response.status_code == 409
     assert "Quellen-Guides" in response.json()["detail"]
 
@@ -104,7 +104,38 @@ def test_briefing_respects_the_source_filter(
     fake_llm.answer = "Antwort [1]."
 
     note = client.post(
-        f"/api/notebooks/{notebook_id}/briefing", json={"source_ids": [second]}
+        f"/api/notebooks/{notebook_id}/reports", json={"source_ids": [second]}
     ).json()
 
     assert {c["source_id"] for c in note["citations"]} == {second}
+
+
+def test_faq_asks_the_questions_of_the_source_guides(
+    client: TestClient, notebook_id: str, fake_llm: FakeLLM
+) -> None:
+    _upload(client, notebook_id, "bio.txt", "Pflanzen betreiben Photosynthese.")
+    fake_llm.answer = "Pflanzen nutzen Licht [1]."
+
+    note = client.post(f"/api/notebooks/{notebook_id}/reports", json={"kind": "faq"}).json()
+
+    assert note["title"].startswith("FAQ: ")
+    # the source guide proposes these, the notebook overview proposes different ones
+    for question in ("Frage 1?", "Frage 2?", "Frage 3?"):
+        assert f"## {question}" in note["content"]
+    assert "Übergreifende Frage 1?" not in note["content"]
+    assert note["citations"]
+
+
+def test_faq_spreads_over_the_sources_before_repeating_one(
+    client: TestClient, notebook_id: str, fake_llm: FakeLLM
+) -> None:
+    _upload(client, notebook_id, "eins.txt", "Photosynthese in Quelle eins.")
+    _upload(client, notebook_id, "zwei.txt", "Photosynthese in Quelle zwei.")
+    fake_llm.answer = "Antwort [1]."
+
+    note = client.post(f"/api/notebooks/{notebook_id}/reports", json={"kind": "faq"}).json()
+
+    headings = [line for line in note["content"].splitlines() if line.startswith("## ")]
+    # both sources propose the same three questions, so round-robin pairs them up
+    assert headings[:2] == ["## Frage 1?", "## Frage 1?"]
+    assert headings[2:4] == ["## Frage 2?", "## Frage 2?"]

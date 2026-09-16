@@ -27,8 +27,10 @@ Aufgenommen mit [e2e/screenshots.py](e2e/screenshots.py).</sub>
 | Chat | Antworten nur aus den Quellen, im Schreiben sichtbar (Streaming), Inline-Zitate `[1]`, expliziter Hinweis, wenn die Quellen nichts hergeben |
 | Zitat-Viewer | Vorschau der Passage beim Überfahren eines Zitats, Klick öffnet sie hervorgehoben mit Quelle, Seite und Nachbarabschnitten |
 | Quellen-Filter | pro Quelle wählbar, ob sie in Antworten einfließt |
+| Studio | was das Notebook aus seinen Quellen erzeugen kann, an einer Stelle: Briefing, FAQ, Themenkarte – darunter die Notizen |
+| Berichte | Briefing (Kernfragen des Notebooks) und FAQ (Fragen der Quellen-Guides); beide beantworten ihre Fragen über den normalen Chat-Pfad und landen als belegte Notiz ([ADR-13](docs/adr/013-briefing-document.md)) |
+| Themenkarte | die Kernthemen aller Quellen als Karte, gezeichnet aus vorhandenen Daten ohne LLM-Aufruf; ein Klick auf ein Thema fragt den Chat danach |
 | Notizen | Antwort als Notiz speichern – die Belege bleiben dort klickbar ([ADR-11](docs/adr/011-note-citations.md)) –, eigene Notizen, bearbeiten, löschen |
-| Briefing-Doc | beantwortet die Kernfragen des Notebooks aus den Quellen und legt das Ergebnis als belegte Notiz ab ([ADR-13](docs/adr/013-briefing-document.md)) |
 | Zugang | ein gemeinsamer Access-Key für die Demo-Instanz |
 
 Bewusst nicht enthalten: Audio und Video Overview, Mind Map, Flashcards und Quiz,
@@ -73,7 +75,7 @@ der Text beim Entstehen, zuletzt die geprüfte Fassung mit klickbaren Belegen ([
 | Streaming, ohne die Zitatprüfung aufzuweichen | [ADR-10](docs/adr/010-streaming-answers.md) |
 | Belege enden nicht an der Notiz | [ADR-11](docs/adr/011-note-citations.md) |
 | Überblick aus den Guides statt aus dem Volltext | [ADR-12](docs/adr/012-notebook-overview.md) |
-| Briefing als Kette gewöhnlicher Antworten | [ADR-13](docs/adr/013-briefing-document.md) |
+| Berichte als Kette gewöhnlicher Antworten | [ADR-13](docs/adr/013-briefing-document.md) |
 
 ## Lokal starten
 

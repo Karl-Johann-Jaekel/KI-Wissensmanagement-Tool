@@ -1,13 +1,19 @@
-"""Briefing document: the notebook's key questions, answered from the sources and cited.
+"""Reports: a set of questions, answered from the sources and written up as a cited note.
 
 Rather than inventing a second way to write grounded text, this runs the ordinary chat path
 once per question and stitches the answers together. The citation rules of ADR-05 therefore
 apply unchanged, and the finished document lands in the notes with working citations (ADR-11).
+
+The kinds differ only in where their questions come from (ADR-13):
+- briefing: the notebook's key questions, i.e. the overview's view of the whole collection
+- faq: the questions each source guide proposes, spread across the sources
 """
 
 import logging
 import re
 import uuid
+from dataclasses import dataclass
+from typing import Literal
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -22,41 +28,55 @@ from app.schemas import Citation
 
 log = logging.getLogger(__name__)
 
-MAX_SECTIONS = 4
+ReportKind = Literal["briefing", "faq"]
+
 TITLE_CHARS = 300
-# A briefing section stands on its own, without a follow-up question to fill gaps, so it gets
+# A report section stands on its own, without a follow-up question to fill gaps, so it gets
 # more passages to work with than a chat turn.
 PASSAGE_FACTOR = 2
 _MARKER = re.compile(r"\[(\d+)\]")
 
 
-class BriefingError(RuntimeError):
+@dataclass(frozen=True)
+class ReportSpec:
+    title: str
+    intro: str
+    max_sections: int
+
+
+SPECS: dict[ReportKind, ReportSpec] = {
+    "briefing": ReportSpec(prompts.BRIEFING_TITLE, prompts.BRIEFING_INTRO, 4),
+    "faq": ReportSpec(prompts.FAQ_TITLE, prompts.FAQ_INTRO, 6),
+}
+
+
+class ReportError(RuntimeError):
     """Nothing to write about; the message is safe to show to users."""
 
 
-def build_briefing(
+def build_report(
     db: Session,
     notebook: Notebook,
+    kind: ReportKind,
     source_ids: list[uuid.UUID] | None,
     embedder: Embedder,
     llm: LLMProvider,
     settings: Settings,
 ) -> tuple[str, str, list[Citation]]:
     """Return title, Markdown body and the citations used across all sections."""
-    questions = _questions(db, notebook, source_ids)
+    spec = SPECS[kind]
+    questions = _questions(db, notebook, kind, source_ids)
     if not questions:
-        raise BriefingError(
-            "Für ein Briefing fehlen Fragen. Warte, bis die Quellen-Guides fertig sind."
-        )
+        raise ReportError("Dafür fehlen Fragen. Warte, bis die Quellen-Guides fertig sind.")
 
     settings = settings.model_copy(
         update={"retrieval_top_k": settings.retrieval_top_k * PASSAGE_FACTOR}
     )
-    parts = [prompts.BRIEFING_INTRO.format(title=notebook.title)]
+    parts = [spec.intro.format(title=notebook.title)]
     citations: list[Citation] = []
     numbers: dict[str, int] = {}  # chunk id -> number in the finished document
 
-    for question in questions[:MAX_SECTIONS]:
+    for question in questions[: spec.max_sections]:
         passages = retrieve_passages(db, notebook.id, question, source_ids, embedder, settings, [])
         if not passages:
             continue
@@ -65,28 +85,49 @@ def build_briefing(
         parts.append(f"## {question}\n\n{_renumber(answer, found, citations, numbers)}")
 
     if len(parts) == 1:
-        raise BriefingError("Zu den Kernfragen wurden keine passenden Passagen gefunden.")
+        raise ReportError("Zu den Fragen wurden keine passenden Passagen gefunden.")
 
-    title = prompts.BRIEFING_TITLE.format(title=notebook.title)[:TITLE_CHARS]
-    return title, "\n\n".join(parts), citations
+    return spec.title.format(title=notebook.title)[:TITLE_CHARS], "\n\n".join(parts), citations
 
 
-def _questions(db: Session, notebook: Notebook, source_ids: list[uuid.UUID] | None) -> list[str]:
-    """The notebook's key questions, or one suggested question per source as a fallback."""
+def _questions(
+    db: Session, notebook: Notebook, kind: ReportKind, source_ids: list[uuid.UUID] | None
+) -> list[str]:
+    per_source = _source_questions(db, notebook.id, source_ids)
+    if kind == "faq":
+        return _round_robin(per_source)
+    # A briefing looks at the collection as a whole; without an overview yet, one question per
+    # source is the closest stand-in.
     if notebook.key_questions:
         return list(notebook.key_questions)
+    return [questions[0] for questions in per_source if questions]
 
+
+def _source_questions(
+    db: Session, notebook_id: uuid.UUID, source_ids: list[uuid.UUID] | None
+) -> list[list[str]]:
     rows = db.execute(
         select(Source.suggested_questions)
         .where(
-            Source.notebook_id == notebook.id,
+            Source.notebook_id == notebook_id,
             Source.status == "ready",
             Source.guide_status == "ready",
             *([Source.id.in_(source_ids)] if source_ids else []),
         )
         .order_by(Source.created_at)
     ).all()
-    return [questions[0] for (questions,) in rows if questions]
+    return [list(questions or []) for (questions,) in rows]
+
+
+def _round_robin(per_source: list[list[str]]) -> list[str]:
+    """One question from each source before any source contributes a second."""
+    picked: list[str] = []
+    depth = max((len(q) for q in per_source), default=0)
+    for i in range(depth):
+        for questions in per_source:
+            if i < len(questions):
+                picked.append(questions[i])
+    return picked
 
 
 def _renumber(

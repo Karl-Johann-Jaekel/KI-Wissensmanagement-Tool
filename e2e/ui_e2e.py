@@ -160,7 +160,7 @@ with sync_playwright() as p:
 
     step("save answer as note and edit it")
     page.get_by_role("button", name="Als Notiz speichern").first.click()
-    notes = page.get_by_role("region", name="Notizen")
+    notes = page.get_by_role("region", name="Studio")
     notes.get_by_role("button", name=re.compile("Wie viele Attention-Heads")).click()
     # the saved answer keeps clickable citations, not a flat list of source names
     expect(notes.get_by_role("button", name=re.compile(r"^Quelle \d+:")).first).to_be_visible()
@@ -170,6 +170,17 @@ with sync_playwright() as p:
     expect(notes.get_by_text("Attention-Heads (bearbeitet)")).to_be_visible()
     page.screenshot(path=OUT / "04-notes.png")
 
+    step("topic map leads back into the chat")
+    notes.get_by_role("button", name="Themenkarte").click()
+    topics = page.get_by_role("region", name="Themenkarte")
+    expect(topics).to_be_visible()
+    expect(topics.get_by_role("button", name="Transformer", exact=True)).to_be_visible()
+    page.screenshot(path=OUT / "08-topics.png")
+    topics.get_by_role("button", name="Self-Attention", exact=True).click()
+    # asking from the map returns to the chat and sends the question
+    expect(topics).to_be_hidden()
+    expect(page.get_by_text("Was sagen die Quellen zu")).to_be_visible(timeout=30_000)
+
     step("briefing document")
     notes.get_by_role("button", name="Briefing").click()
     briefing = notes.locator("article", has_text="Briefing:")
@@ -178,6 +189,14 @@ with sync_playwright() as p:
     expect(briefing.get_by_text("Welche Bausteine hat die Transformer-Architektur?")).to_be_visible()
     expect(briefing.get_by_role("button", name=re.compile(r"^Quelle \d+:")).first).to_be_visible()
     page.screenshot(path=OUT / "06-briefing.png")
+
+    step("faq report")
+    notes.get_by_role("button", name="FAQ").click()
+    faq = notes.locator("article", has_text="FAQ:")
+    expect(faq).to_be_visible(timeout=120_000)
+    # the FAQ asks what the source guide proposes, the briefing what the overview proposes
+    expect(faq.get_by_text("Wie viele Attention-Heads nutzt das Basismodell?")).to_be_visible()
+    expect(faq.get_by_role("button", name=re.compile(r"^Quelle \d+:")).first).to_be_visible()
 
     step("source filter")
     checkbox = page.get_by_label(re.compile("für Antworten verwenden"))
