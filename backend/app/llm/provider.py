@@ -1,8 +1,9 @@
 """LLM provider abstraction (ADR-03): Mistral La Plateforme or a local Ollama."""
 
+import json
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from functools import lru_cache
 from typing import Protocol, TypedDict
 
@@ -32,6 +33,10 @@ class LLMProvider(Protocol):
         json_mode: bool = False,
         max_tokens: int | None = None,
     ) -> str: ...
+
+    def stream(self, messages: list[ChatMessage]) -> Iterator[str]:
+        """Yield the answer in pieces as the model produces them."""
+        ...
 
 
 class _RetryingHttpProvider:
@@ -75,6 +80,60 @@ class _RetryingHttpProvider:
             if attempt < self.max_attempts:
                 delay = min(delay, self._max_delay)
                 log.warning("LLM call failed (%s), retry %d in %.1fs", last_error, attempt, delay)
+                self._sleep(delay)
+        raise LLMError(
+            f"Das Sprachmodell ist gerade nicht erreichbar ({last_error}). "
+            "Bitte gleich erneut versuchen."
+        )
+
+    def _stream_post(
+        self,
+        path: str,
+        payload: dict[str, object],
+        parse: Callable[[str], str | None],
+    ) -> Iterator[str]:
+        """Same retry rules as `_post`, but only until the first piece of text.
+
+        Once a piece has been handed to the caller it is already on the user's screen; a retry
+        would restart the answer and duplicate what is shown. From then on, failures surface.
+        """
+        last_error = "unknown error"
+        for attempt in range(1, self.max_attempts + 1):
+            emitted = False
+            try:
+                with self._client.stream("POST", path, json=payload) as response:
+                    if response.status_code < 400:
+                        for line in response.iter_lines():
+                            piece = parse(line)
+                            if piece:
+                                emitted = True
+                                yield piece
+                        return
+                    response.read()
+                    last_error = f"HTTP {response.status_code}"
+                    if response.headers.get("x-ratelimit-limit-req-minute") == "0":
+                        raise LLMError(
+                            "Das LLM-Kontingent ist 0 Anfragen/Minute – "
+                            "API-Plan beim Anbieter aktivieren."
+                        )
+                    if response.status_code not in RETRY_STATUS:
+                        log.error(
+                            "LLM stream rejected: %s %s", response.status_code, response.text[:300]
+                        )
+                        raise LLMError(
+                            f"Das Sprachmodell hat die Anfrage abgelehnt ({last_error})."
+                        )
+                    delay = _retry_after(response) or float(2 ** (attempt - 1))
+            except httpx.TransportError as exc:
+                if emitted:
+                    raise LLMError(
+                        "Die Verbindung zum Sprachmodell ist mitten in der Antwort abgerissen."
+                    ) from exc
+                last_error = type(exc).__name__
+                delay = float(2 ** (attempt - 1))
+            if attempt < self.max_attempts:
+                delay = min(delay, self._max_delay)
+                log.warning("LLM stream failed (%s), retry %d in %.1fs", last_error, attempt, delay)
                 self._sleep(delay)
         raise LLMError(
             f"Das Sprachmodell ist gerade nicht erreichbar ({last_error}). "
@@ -132,6 +191,17 @@ class MistralProvider(_RetryingHttpProvider):
             raise LLMError("Unerwartete Antwort des Sprachmodells.") from exc
         return str(content)
 
+    def stream(self, messages: list[ChatMessage]) -> Iterator[str]:
+        if not self._has_key:
+            raise LLMError("MISTRAL_API_KEY ist nicht gesetzt.")
+        payload: dict[str, object] = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": self._temperature,
+            "stream": True,
+        }
+        yield from self._stream_post("/chat/completions", payload, _parse_sse_delta)
+
 
 class OllamaProvider(_RetryingHttpProvider):
     def __init__(
@@ -173,6 +243,42 @@ class OllamaProvider(_RetryingHttpProvider):
         except (KeyError, TypeError) as exc:
             raise LLMError("Unerwartete Antwort des Sprachmodells.") from exc
 
+    def stream(self, messages: list[ChatMessage]) -> Iterator[str]:
+        payload: dict[str, object] = {
+            "model": self._model,
+            "messages": messages,
+            "stream": True,
+            "options": {"temperature": self._temperature},
+        }
+        yield from self._stream_post("/api/chat", payload, _parse_ndjson_delta)
+
+
+def _parse_sse_delta(line: str) -> str | None:
+    """One `data:` line of an OpenAI-style stream; anything unparsable is skipped."""
+    if not line.startswith("data:"):
+        return None
+    body = line[len("data:") :].strip()
+    if not body or body == "[DONE]":
+        return None
+    try:
+        chunk = json.loads(body)
+        content = chunk["choices"][0]["delta"].get("content")
+    except (json.JSONDecodeError, KeyError, IndexError, TypeError):
+        return None
+    return str(content) if content else None
+
+
+def _parse_ndjson_delta(line: str) -> str | None:
+    """One JSON object per line, as Ollama streams it."""
+    if not line.strip():
+        return None
+    try:
+        chunk = json.loads(line)
+        content = chunk.get("message", {}).get("content")
+    except (json.JSONDecodeError, AttributeError):
+        return None
+    return str(content) if content else None
+
 
 def _retry_after(response: httpx.Response) -> float | None:
     value = response.headers.get("retry-after")
@@ -202,6 +308,23 @@ class FallbackProvider:
             try:
                 return provider.complete(messages, json_mode=json_mode, max_tokens=max_tokens)
             except LLMError as exc:
+                log.warning("LLM %s failed (%s), falling back", name, exc)
+                last_error = exc
+        assert last_error is not None
+        raise last_error
+
+    def stream(self, messages: list[ChatMessage]) -> Iterator[str]:
+        last_error: LLMError | None = None
+        for name, provider in self._providers:
+            emitted = False
+            try:
+                for piece in provider.stream(messages):
+                    emitted = True
+                    yield piece
+                return
+            except LLMError as exc:
+                if emitted:
+                    raise  # half an answer is on screen; a second provider would repeat it
                 log.warning("LLM %s failed (%s), falling back", name, exc)
                 last_error = exc
         assert last_error is not None

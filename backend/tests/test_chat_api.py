@@ -1,3 +1,4 @@
+import json
 from typing import Any
 
 from fastapi.testclient import TestClient
@@ -16,6 +17,18 @@ def _upload(client: TestClient, notebook_id: str, name: str, text: str) -> str:
 
 def _chat(client: TestClient, notebook_id: str, **payload: Any) -> Any:
     return client.post(f"/api/notebooks/{notebook_id}/chat", json=payload)
+
+
+def _stream(client: TestClient, notebook_id: str, **payload: Any) -> list[dict[str, Any]]:
+    """Run a streamed answer and return its events in order."""
+    response = client.post(f"/api/notebooks/{notebook_id}/chat/stream", json=payload)
+    assert response.status_code == 200, response.text
+    assert response.headers["content-type"].startswith("text/event-stream")
+    return [
+        json.loads(line[len("data: ") :])
+        for line in response.text.splitlines()
+        if line.startswith("data: ")
+    ]
 
 
 def test_answer_contains_validated_citations(
@@ -120,3 +133,65 @@ def test_clear_messages(client: TestClient, notebook_id: str) -> None:
     _chat(client, notebook_id, question="Hallo?")
     assert client.delete(f"/api/notebooks/{notebook_id}/messages").status_code == 204
     assert client.get(f"/api/notebooks/{notebook_id}/messages").json() == []
+
+
+def test_stream_sends_deltas_then_the_validated_answer(
+    client: TestClient, notebook_id: str, fake_llm: FakeLLM
+) -> None:
+    source_id = _upload(client, notebook_id, "bio.txt", "Pflanzen betreiben Photosynthese.")
+    fake_llm.answer = "Pflanzen nutzen Photosynthese [1]. Erfunden [7]."
+
+    events = _stream(client, notebook_id, question="Was machen Pflanzen mit Licht?")
+
+    assert events[0] == {"type": "passages", "count": 1, "sources": 1}
+    deltas = [e["text"] for e in events if e["type"] == "delta"]
+    assert len(deltas) > 1, "answer should arrive in pieces, not at once"
+    assert "".join(deltas) == fake_llm.answer
+
+    done = events[-1]
+    assert done["type"] == "done"
+    # the invalid [7] survives in the raw deltas but not in the stored answer
+    assert done["answer"]["content"] == "Pflanzen nutzen Photosynthese [1]. Erfunden."
+    assert [c["source_id"] for c in done["answer"]["citations"]] == [source_id]
+    assert done["question"]["content"] == "Was machen Pflanzen mit Licht?"
+
+    messages = client.get(f"/api/notebooks/{notebook_id}/messages").json()
+    assert [m["role"] for m in messages] == ["user", "assistant"]
+    assert messages[1]["content"] == done["answer"]["content"]
+
+
+def test_stream_without_matching_sources_reports_no_answer(
+    client: TestClient, notebook_id: str
+) -> None:
+    _upload(client, notebook_id, "a.txt", "Inhalt.")
+    events = _stream(client, notebook_id, question="Was steht drin?", source_ids=[])
+
+    assert events[0] == {"type": "passages", "count": 0, "sources": 0}
+    assert [e["text"] for e in events if e["type"] == "delta"] == [prompts.NO_SOURCES_ANSWER]
+    assert events[-1]["answer"]["citations"] == []
+
+
+def test_stream_reports_llm_failure_as_event_and_stores_nothing(
+    client: TestClient, notebook_id: str, fake_llm: FakeLLM
+) -> None:
+    _upload(client, notebook_id, "a.txt", "Inhalt über Photosynthese.")
+
+    def broken(_messages: list[ChatMessage]) -> str:
+        raise LLMError("Das Sprachmodell ist gerade nicht erreichbar.")
+
+    fake_llm.answer = broken
+    events = _stream(client, notebook_id, question="Photosynthese?")
+
+    # the response is already HTTP 200 when generation starts, so the failure has to be an event
+    assert events[-1]["type"] == "error"
+    assert "nicht erreichbar" in events[-1]["detail"]
+    assert client.get(f"/api/notebooks/{notebook_id}/messages").json() == []
+
+
+def test_stream_requires_the_access_key(client: TestClient, notebook_id: str) -> None:
+    response = client.post(
+        f"/api/notebooks/{notebook_id}/chat/stream",
+        json={"question": "Hallo?"},
+        headers={"X-Access-Key": "wrong"},
+    )
+    assert response.status_code == 401

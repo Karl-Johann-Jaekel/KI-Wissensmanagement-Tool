@@ -4,7 +4,7 @@ import hashlib
 import json
 import math
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 
 from app.llm.provider import ChatMessage
 
@@ -55,3 +55,9 @@ class FakeLLM:
                 }
             )
         return self.answer(messages) if callable(self.answer) else self.answer
+
+    def stream(self, messages: list[ChatMessage]) -> Iterator[str]:
+        """Word by word, so tests see more than one delta event."""
+        answer = self.complete(messages)
+        for i, word in enumerate(answer.split(" ")):
+            yield word if i == 0 else f" {word}"
