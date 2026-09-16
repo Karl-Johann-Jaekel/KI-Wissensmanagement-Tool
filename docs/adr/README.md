@@ -17,3 +17,4 @@ Kurze ADRs nach dem Schema Kontext → Entscheidung → Konsequenzen → verworf
 | [ADR-11](011-note-citations.md) | Notizen behalten die Belege der gespeicherten Antwort | angenommen |
 | [ADR-12](012-notebook-overview.md) | Notebook-Überblick aus den Quellen-Guides, nicht aus dem Volltext | angenommen |
 | [ADR-13](013-briefing-document.md) | Berichte als Kette gewöhnlicher, belegter Antworten | angenommen |
+| [ADR-14](014-prompt-injection.md) | Prompt-Injection wird im Code abgefangen, nicht im Prompt | angenommen |

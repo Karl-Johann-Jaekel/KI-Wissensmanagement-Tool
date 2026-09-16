@@ -42,6 +42,9 @@ _ANAPHORA = frozenset(
 _LEADING_CONJUNCTIONS = frozenset({"und", "aber", "and", "but"})
 # ambiguous words that are a pronoun only at the very end: "Was bedeutet das?"
 _TRAILING_PRONOUNS = frozenset({"das", "sie", "es", "that"})
+# A line inside a document that looks like a passage header ("[3] (Quelle: Gesetz, S. 1)")
+# could pass itself off as a separate passage with a source and page of its own choosing.
+_FAKE_HEADER = re.compile(r"^(\s*)\[(\d+)\](\s*\(Quelle:)", re.MULTILINE)
 
 
 @router.get("/notebooks/{notebook_id}/messages", response_model=list[MessageOut])
@@ -295,4 +298,5 @@ def condense_for_history(content: str) -> str:
 
 def _format_passage(passage: Passage) -> str:
     location = f", S. {passage.page}" if passage.page else ""
-    return f"[{passage.n}] (Quelle: {passage.source_title}{location})\n{passage.content}"
+    content = _FAKE_HEADER.sub(r"\1(\2)\3", passage.content)
+    return f"[{passage.n}] (Quelle: {passage.source_title}{location})\n{content}"

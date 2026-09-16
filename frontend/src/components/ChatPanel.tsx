@@ -194,6 +194,14 @@ export function ChatPanel({
           ) : (
             <article key={message.id} className="max-w-[95%] space-y-2">
               <RichText text={message.content} citations={message.citations} onCitation={onCitation} />
+              {/* Checked by the backend, not by the model: a source can talk a model out of
+                  citing, but it cannot hide that nothing was cited. */}
+              {!message.grounded && (
+                <p className="rounded-xl bg-danger-soft px-3 py-2 text-xs text-danger">
+                  Ohne Beleg: Diese Antwort stützt sich auf keine Passage und ist nicht aus den
+                  Quellen geprüft.
+                </p>
+              )}
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   className="btn-ghost -ml-3 text-xs"

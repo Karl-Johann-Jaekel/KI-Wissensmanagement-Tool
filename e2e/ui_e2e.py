@@ -158,6 +158,16 @@ with sync_playwright() as p:
         timeout=30_000
     )
 
+    step("an answer without any citation is marked as unverified")
+    page.get_by_label("Frage").fill("Eine ungeprüft belegfreie Frage?")
+    page.keyboard.press("Enter")
+    expect(page.get_by_text("Diese Aussage kommt ohne jeden Beleg aus.")).to_be_visible(
+        timeout=30_000
+    )
+    expect(page.get_by_text(re.compile(r"^Ohne Beleg: Diese Antwort"))).to_be_visible()
+    # the honest refusal before it carries no citation either, but is not marked
+    expect(page.get_by_text(re.compile(r"^Ohne Beleg:"))).to_have_count(1)
+
     step("save answer as note and edit it")
     page.get_by_role("button", name="Als Notiz speichern").first.click()
     notes = page.get_by_role("region", name="Studio")

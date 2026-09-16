@@ -4,6 +4,8 @@ import re
 import uuid
 from dataclasses import dataclass
 
+from app.llm.prompts import NO_SOURCES_ANSWER
+
 # [1]  [1, 3]  [1; 3]  [2-4]  [2–4]
 _GROUP_PATTERN = r"\[\s*(\d+(?:\s*(?:[,;]|[-–])\s*\d+)*)\s*\]"
 _GROUP = re.compile(_GROUP_PATTERN)
@@ -19,6 +21,12 @@ _LOOKALIKE = re.compile(r"\[[^\[\]\n]{1,60}\]")
 _SPACE_BEFORE_PUNCT = re.compile(r"[ \t]+([.,;:!?)])")
 _MULTI_SPACE = re.compile(r"[ \t]{2,}")
 SNIPPET_CHARS = 220
+# The honest "nothing in the sources" answer carries no citation, and rightly so.
+_REFUSAL = re.compile(
+    r"^\s*(dazu enthalten die quellen keine angaben|the sources (contain no|do not contain))",
+    re.IGNORECASE,
+)
+REFUSAL_MAX_CHARS = 240
 MAX_RANGE = 10
 MAX_CITATIONS_PER_CLAIM = 3
 
@@ -109,6 +117,24 @@ def _drop_lookalikes(text: str) -> str:
         return ""
 
     return _LOOKALIKE.sub(keep, text)
+
+
+def is_refusal(answer: str) -> bool:
+    text = answer.strip()
+    if text == NO_SOURCES_ANSWER:
+        return True
+    return len(text) <= REFUSAL_MAX_CHARS and _REFUSAL.match(text) is not None
+
+
+def is_grounded(answer: str, citations: list[object]) -> bool:
+    """Does an answer keep the promise that it comes from the sources?
+
+    Checked in code, not left to the prompt: a document can instruct the model to drop its
+    citations, and in measurements every prompt-level countermeasure made that worse
+    (docs/prompts.md). An answer without a single citation that is not an honest refusal is
+    therefore shown as unverified, whatever the model was talked into.
+    """
+    return bool(citations) or is_refusal(answer)
 
 
 def strip_citations(text: str) -> str:
