@@ -13,6 +13,7 @@
   --accent-soft: #e6ebfd;
   --highlight: #fff1b8;
   --danger: #c92a2a;
+  --danger-fg: #ffffff;
   --danger-soft: #fdecec;
   --success: #2b8a3e;
 }
@@ -30,6 +31,7 @@
     --accent-soft: #232c4a;
     --highlight: #5a4a12;
     --danger: #ff8787;
+    --danger-fg: #0f1216;
     --danger-soft: #3b1c1f;
     --success: #69db7c;
   }
@@ -47,6 +49,7 @@
   --color-accent-soft: var(--accent-soft);
   --color-highlight: var(--highlight);
   --color-danger: var(--danger);
+  --color-danger-fg: var(--danger-fg);
   --color-danger-soft: var(--danger-soft);
   --color-success: var(--success);
 }
@@ -77,6 +80,10 @@ body {
 }
 @utility btn-danger {
   @apply btn text-danger hover:bg-danger-soft;
+}
+/* Filled variant for the confirm button of a destructive dialog. */
+@utility btn-destructive {
+  @apply btn bg-danger text-danger-fg hover:opacity-90;
 }
 @utility input {
   @apply w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg outline-none placeholder:text-muted focus:border-accent;

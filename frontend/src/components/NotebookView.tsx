@@ -4,6 +4,7 @@ import { errorText, useLoader } from '../hooks'
 import type { Citation, Note, Source } from '../types'
 import { ChatPanel, type ChatHandle } from './ChatPanel'
 import { CitationDrawer } from './CitationDrawer'
+import { usePrompt } from './Dialogs'
 import { BackIcon, EditIcon, Spinner } from './Icons'
 import { NotesPanel } from './NotesPanel'
 import { SourcePanel } from './SourcePanel'
@@ -23,6 +24,7 @@ export function NotebookView({ notebookId, onBack }: { notebookId: string; onBac
   const [deselected, setDeselected] = useState<Set<string>>(new Set())
   const [citation, setCitation] = useState<Citation | null>(null)
   const [titleError, setTitleError] = useState<string | null>(null)
+  const [prompt, promptDialog] = usePrompt()
   const chatRef = useRef<ChatHandle>(null)
 
   // Poll while ingestion or guide generation is running.
@@ -64,7 +66,11 @@ export function NotebookView({ notebookId, onBack }: { notebookId: string; onBac
   async function rename() {
     const current = notebook.data
     if (!current) return
-    const title = window.prompt('Neuer Titel', current.title)?.trim()
+    const title = await prompt({
+      title: 'Notebook umbenennen',
+      label: 'Titel',
+      initial: current.title,
+    })
     if (!title || title === current.title) return
     try {
       const updated = await api.renameNotebook(current.id, title)
@@ -163,6 +169,7 @@ export function NotebookView({ notebookId, onBack }: { notebookId: string; onBac
       </div>
 
       {citation && <CitationDrawer citation={citation} onClose={closeCitation} />}
+      {promptDialog}
     </div>
   )
 }

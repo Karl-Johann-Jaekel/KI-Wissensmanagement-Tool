@@ -10,6 +10,7 @@ import {
 import { ApiError, api } from '../api'
 import { errorText, useLoader } from '../hooks'
 import type { ChatResponse, Citation, Message, Note, Source } from '../types'
+import { useConfirm } from './Dialogs'
 import { CopyIcon, NoteIcon, RefreshIcon, SendIcon, SparkIcon, Spinner, TrashIcon } from './Icons'
 import { RichText } from './RichText'
 
@@ -42,6 +43,7 @@ export function ChatPanel({
   const [sendError, setSendError] = useState<{ question: string; message: string } | null>(null)
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set())
   const [noteError, setNoteError] = useState<string | null>(null)
+  const [confirm, confirmDialog] = useConfirm()
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const readySources = sources?.filter((s) => s.status === 'ready') ?? []
@@ -106,7 +108,13 @@ export function ChatPanel({
   }
 
   async function clearChat() {
-    if (!window.confirm('Chatverlauf löschen? Gespeicherte Notizen bleiben erhalten.')) return
+    const ok = await confirm({
+      title: 'Chatverlauf löschen?',
+      body: 'Gespeicherte Notizen bleiben erhalten.',
+      confirmLabel: 'Löschen',
+      danger: true,
+    })
+    if (!ok) return
     try {
       await api.clearMessages(notebookId)
       messages.setData(() => [])
@@ -249,6 +257,7 @@ export function ChatPanel({
             : 'Antworten basieren ausschließlich auf deinen Quellen.'}
         </p>
       </div>
+      {confirmDialog}
     </section>
   )
 }

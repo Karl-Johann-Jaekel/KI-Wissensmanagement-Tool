@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import type { Citation } from '../types'
 
 /**
@@ -97,16 +97,76 @@ function CitationChip({
   citation: Citation
   onClick?: (citation: Citation) => void
 }) {
+  const [anchor, setAnchor] = useState<DOMRect | null>(null)
+  const ref = useRef<HTMLButtonElement>(null)
   const label = `${citation.source_title}${citation.page ? `, S. ${citation.page}` : ''}`
+
+  const show = () => setAnchor(ref.current?.getBoundingClientRect() ?? null)
+  const hide = () => setAnchor(null)
+
+  // The preview is positioned against the viewport, so scrolling would leave it behind.
+  useEffect(() => {
+    if (!anchor) return
+    window.addEventListener('scroll', hide, true)
+    return () => window.removeEventListener('scroll', hide, true)
+  }, [anchor])
+
   return (
-    <button
-      type="button"
-      onClick={() => onClick?.(citation)}
-      title={`${label}\n\n${citation.snippet}`}
-      aria-label={`Quelle ${citation.n}: ${label}`}
-      className="ml-1 inline-flex h-5 min-w-5 -translate-y-px items-center justify-center rounded-full bg-accent-soft px-1.5 align-middle text-[11px] font-semibold text-accent transition-colors hover:bg-accent hover:text-accent-fg"
+    // No transform on this wrapper: it would become the containing block of the fixed preview.
+    <span className="inline">
+      <button
+        ref={ref}
+        type="button"
+        onClick={() => onClick?.(citation)}
+        onMouseEnter={show}
+        onMouseLeave={hide}
+        onFocus={show}
+        onBlur={hide}
+        aria-label={`Quelle ${citation.n}: ${label}`}
+        className="ml-1 inline-flex h-5 min-w-5 -translate-y-px items-center justify-center rounded-full bg-accent-soft px-1.5 align-middle text-[11px] font-semibold text-accent transition-colors hover:bg-accent hover:text-accent-fg"
+      >
+        {citation.n}
+      </button>
+      {anchor && <CitationPreview citation={citation} label={label} anchor={anchor} />}
+    </span>
+  )
+}
+
+const PREVIEW_WIDTH = 320
+const PREVIEW_GAP = 8
+
+/**
+ * Hover card for a citation chip. Fixed to the viewport because the chat column scrolls and
+ * would clip an absolutely positioned card near its edges.
+ */
+function CitationPreview({
+  citation,
+  label,
+  anchor,
+}: {
+  citation: Citation
+  label: string
+  anchor: DOMRect
+}) {
+  const width = Math.min(PREVIEW_WIDTH, window.innerWidth - 2 * PREVIEW_GAP)
+  const left = Math.min(
+    Math.max(PREVIEW_GAP, anchor.left + anchor.width / 2 - width / 2),
+    window.innerWidth - width - PREVIEW_GAP,
+  )
+  const above = anchor.top > window.innerHeight / 2
+  const style: CSSProperties = above
+    ? { left, width, bottom: window.innerHeight - anchor.top + PREVIEW_GAP }
+    : { left, width, top: anchor.bottom + PREVIEW_GAP }
+
+  return (
+    <span
+      role="tooltip"
+      style={style}
+      className="pointer-events-none fixed z-40 block rounded-xl border border-line bg-surface p-3 shadow-lg"
     >
-      {citation.n}
-    </button>
+      <span className="block text-xs font-medium text-fg">{label}</span>
+      <span className="mt-1 block text-xs leading-relaxed text-muted">{citation.snippet}</span>
+      <span className="mt-2 block text-[11px] text-accent">Klicken öffnet die Passage</span>
+    </span>
   )
 }
