@@ -24,7 +24,7 @@ Aufgenommen mit [e2e/screenshots.py](e2e/screenshots.py).</sub>
 | Quellen | PDF (mit Textebene), TXT, Markdown, Webseiten-Import; Verarbeitung im Hintergrund mit Statusanzeige |
 | Quellen-Guide | automatische Zusammenfassung, Kernthemen und drei Fragevorschläge je Quelle, geöffnet in der Hauptspalte |
 | Notebook-Überblick | was die Quellen gemeinsam abdecken, plus Fragen über mehrere Quellen hinweg ([ADR-12](docs/adr/012-notebook-overview.md)) |
-| Chat | Antworten nur aus den Quellen, im Schreiben sichtbar (Streaming), Inline-Zitate `[1]`, expliziter Hinweis, wenn die Quellen nichts hergeben |
+| Chat | Antworten nur aus den Quellen, im Schreiben sichtbar (Streaming), Inline-Zitate `[1]`, expliziter Hinweis, wenn die Quellen nichts hergeben; eine Antwort ohne jeden Beleg wird als ungeprüft markiert ([ADR-14](docs/adr/014-prompt-injection.md)) |
 | Zitat-Viewer | Vorschau der Passage beim Überfahren eines Zitats, Klick öffnet sie hervorgehoben mit Quelle, Seite und Nachbarabschnitten |
 | Quellen-Filter | pro Quelle wählbar, ob sie in Antworten einfließt |
 | Studio | was das Notebook aus seinen Quellen erzeugen kann, an einer Stelle: Briefing, FAQ, Themenkarte – darunter die Notizen |
@@ -175,6 +175,7 @@ Alle Werte in [.env.example](.env.example). Die wichtigsten:
 | `MISTRAL_FALLBACK_MODEL` | springt ein, wenn das Hauptmodell limitiert ist; Standard `ministral-8b-latest`, leer = aus ([ADR-09](docs/adr/009-llm-fallback.md)) |
 | `FRONTEND_PORT` | Host-Port des Frontends, nur an `127.0.0.1` gebunden |
 | `CHUNK_MAX_CHARS`, `RETRIEVAL_TOP_K` | Chunk-Größe und Anzahl Passagen pro Antwort |
+| `INGEST_CONCURRENCY` | wie viele Uploads gleichzeitig verarbeitet werden; Standard 1, weil ein großes PDF allein fast 2 GiB belegt |
 
 ## Produktiv-Deployment
 
@@ -207,9 +208,11 @@ inklusive des 470 MB großen Embedding-Modells.
 
 ### Browser-E2E
 
-Klickt den Kern-Workflow im echten Browser durch (Upload → Guide → Frage → Zitat → Notiz,
-Quellenfilter, SSRF-Block, Dark Mode, Mobil-Layout) und schlägt bei jeder Console-Warnung fehl.
-Ein Mock-LLM spricht die Mistral-API, es wird kein Kontingent verbraucht.
+Klickt den Kern-Workflow in 23 Schritten im echten Browser durch – Upload, Guide, Überblick,
+Frage mit Beleg, Zitat-Viewer, Absage außerhalb der Quellen, Markierung einer Antwort ohne Beleg,
+Notiz, Themenkarte, Briefing, FAQ, Quellenfilter, SSRF-Block, Dunkelmodus, Mobil-Layout – und
+schlägt bei jeder Console-Warnung und jedem nativen Browserdialog fehl. Ein Mock-LLM spricht die
+Mistral-API, es wird kein Kontingent verbraucht.
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.override.yml -f e2e/docker-compose.e2e.yml up -d --build
@@ -225,17 +228,30 @@ Die Screenshots in diesem README erzeugt [e2e/screenshots.py](e2e/screenshots.py
 laufende Instanz — Chat und Notizen des Ziel-Notebooks werden davor und danach geleert, die
 Bilder sind also wiederholbar.
 
+### Prüfungen gegen das echte Modell
+
+Zwei Skripte laufen bewusst außerhalb von `pytest`, weil sie echte Daten oder das echte Modell
+brauchen:
+
+| Skript | Prüft |
+|---|---|
+| [backend/scripts/retrieval_eval.py](backend/scripts/retrieval_eval.py) | Rangqualität je Suchliste gegen das Demo-Notebook, ohne LLM-Aufruf ([Retrieval-Qualität](#retrieval-qualität)) |
+| [backend/scripts/prompt_injection_check.py](backend/scripts/prompt_injection_check.py) | ob eine Quelle mit eingeschleuster Anweisung den Leser täuschen kann ([ADR-14](docs/adr/014-prompt-injection.md)) |
+
 ## Projektstruktur
 
 ```
 backend/app/
-  ingest/      parsers.py, url.py (SSRF-Schutz), chunker.py, guide.py, pipeline.py
+  ingest/      parsers.py, url.py (SSRF-Schutz), chunker.py, guide.py, overview.py, pipeline.py
   retrieval/   embed.py, text_query.py, search.py, rrf.py
-  llm/         provider.py (Mistral | Ollama, Retry), prompts.py
-  routers/     notebooks, sources, chat, notes
-  citations.py Parsing und Validierung der [n]-Marker
-frontend/src/  App.tsx, api.ts, components/ (SourcePanel, ChatPanel, NotesPanel, CitationDrawer, …)
-e2e/           Playwright-Test + Mock-LLM
+  llm/         provider.py (Mistral | Ollama, Retry, Streaming), prompts.py
+  routers/     notebooks, sources, chat (inkl. SSE), notes (inkl. Berichte)
+  citations.py Parsing und Validierung der [n]-Marker, Prüfung auf fehlende Belege
+  reports.py   Briefing und FAQ als Kette belegter Antworten
+backend/scripts/  Retrieval-Evaluation, Prompt-Injection-Prüfung (gegen echte Daten)
+frontend/src/  App.tsx, api.ts, components/ (SourcePanel, SourceGuidePanel, ChatPanel,
+               StudioPanel, TopicMapPanel, CitationDrawer, Dialogs, …)
+e2e/           Playwright-Test, Mock-LLM, Screenshot-Skript
 demo/          Seed-Skript und Demo-Fragen
 docs/adr/      Architekturentscheidungen
 ```
