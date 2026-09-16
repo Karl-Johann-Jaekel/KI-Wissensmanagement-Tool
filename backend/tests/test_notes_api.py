@@ -87,3 +87,25 @@ def test_editing_a_saved_answer_keeps_its_citations(
     assert [c["chunk_id"] for c in updated["citations"]] == [
         c["chunk_id"] for c in note["citations"]
     ]
+
+
+def test_citation_of_a_deleted_source_explains_itself(
+    client: TestClient, notebook_id: str, fake_llm: FakeLLM
+) -> None:
+    source_id = client.post(
+        f"/api/notebooks/{notebook_id}/sources",
+        files={"file": ("bericht.txt", b"Der Umsatz stieg um 12 Prozent.")},
+    ).json()["id"]
+    fake_llm.answer = "Der Umsatz stieg um 12 % [1]."
+    answer = client.post(f"/api/notebooks/{notebook_id}/chat", json={"question": "Umsatz?"}).json()[
+        "answer"
+    ]
+    note = client.post(f"/api/notebooks/{notebook_id}/notes/from-message/{answer['id']}").json()
+    citation = note["citations"][0]
+
+    client.delete(f"/api/sources/{source_id}")
+
+    # The note keeps its citation; opening it has to say why nothing shows up.
+    response = client.get(f"/api/sources/{source_id}/chunks/{citation['chunk_id']}")
+    assert response.status_code == 404
+    assert "nicht mehr" in response.json()["detail"]

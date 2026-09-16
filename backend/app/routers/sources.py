@@ -158,9 +158,13 @@ def delete_source(source_id: uuid.UUID, db: DB) -> Response:
 
 @router.get("/sources/{source_id}/chunks/{chunk_id}", response_model=ChunkOut)
 def get_chunk(source_id: uuid.UUID, chunk_id: uuid.UUID, db: DB) -> ChunkOut:
-    chunk = get_or_404(db, Chunk, chunk_id)
-    if chunk.source_id != source_id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Chunk not found")
+    # Shown verbatim in the citation viewer: a note outlives the source it was saved from.
+    chunk = db.get(Chunk, chunk_id)
+    if chunk is None or chunk.source_id != source_id:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            "Diese Passage gibt es nicht mehr – die Quelle wurde entfernt.",
+        )
     source = get_or_404(db, Source, source_id)
     rows = db.execute(
         select(Chunk.ordinal, Chunk.content).where(

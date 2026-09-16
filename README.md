@@ -18,11 +18,11 @@ Entscheidungen: [docs/adr/](docs/adr/README.md), Arbeit mit AI-Tools: [docs/prom
 |---|---|
 | Notebooks | anlegen, umbenennen, löschen |
 | Quellen | PDF (mit Textebene), TXT, Markdown, Webseiten-Import; Verarbeitung im Hintergrund mit Statusanzeige |
-| Quellen-Guide | automatische Zusammenfassung, Kernthemen und drei Fragevorschläge je Quelle |
+| Quellen-Guide | automatische Zusammenfassung, Kernthemen und drei Fragevorschläge je Quelle, geöffnet in der Hauptspalte |
 | Chat | Antworten nur aus den Quellen, im Schreiben sichtbar (Streaming), Inline-Zitate `[1]`, expliziter Hinweis, wenn die Quellen nichts hergeben |
 | Zitat-Viewer | Vorschau der Passage beim Überfahren eines Zitats, Klick öffnet sie hervorgehoben mit Quelle, Seite und Nachbarabschnitten |
 | Quellen-Filter | pro Quelle wählbar, ob sie in Antworten einfließt |
-| Notizen | Antwort als Notiz speichern (inkl. Quellenliste), eigene Notizen, bearbeiten, löschen |
+| Notizen | Antwort als Notiz speichern – die Belege bleiben dort klickbar ([ADR-11](docs/adr/011-note-citations.md)) –, eigene Notizen, bearbeiten, löschen |
 | Zugang | ein gemeinsamer Access-Key für die Demo-Instanz |
 
 Bewusst nicht enthalten: Audio Overview, Mind Map, YouTube/Audio-Quellen, Multi-User.
@@ -60,6 +60,7 @@ der Text beim Entstehen, zuletzt die geprüfte Fassung mit klickbaren Belegen ([
 | Lokale Embeddings, EU-LLM mit Provider-Switch | [ADR-02](docs/adr/002-local-embeddings.md), [ADR-03](docs/adr/003-llm-provider-mistral.md) |
 | Fallback auf zweites Mistral-Modell statt Ollama (mit Messung) | [ADR-09](docs/adr/009-llm-fallback.md) |
 | Streaming, ohne die Zitatprüfung aufzuweichen | [ADR-10](docs/adr/010-streaming-answers.md) |
+| Belege enden nicht an der Notiz | [ADR-11](docs/adr/011-note-citations.md) |
 
 ## Lokal starten
 

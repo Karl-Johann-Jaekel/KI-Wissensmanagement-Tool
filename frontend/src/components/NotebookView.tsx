@@ -7,6 +7,7 @@ import { CitationDrawer } from './CitationDrawer'
 import { usePrompt } from './Dialogs'
 import { BackIcon, EditIcon, Spinner } from './Icons'
 import { NotesPanel } from './NotesPanel'
+import { SourceGuidePanel } from './SourceGuidePanel'
 import { SourcePanel } from './SourcePanel'
 
 type Tab = 'sources' | 'chat' | 'notes'
@@ -21,6 +22,7 @@ export function NotebookView({ notebookId, onBack }: { notebookId: string; onBac
   const { setData: setNotes } = notes
 
   const [tab, setTab] = useState<Tab>('chat')
+  const [openSourceId, setOpenSourceId] = useState<string | null>(null)
   const [deselected, setDeselected] = useState<Set<string>>(new Set())
   const [citation, setCitation] = useState<Citation | null>(null)
   const [titleError, setTitleError] = useState<string | null>(null)
@@ -49,6 +51,19 @@ export function NotebookView({ notebookId, onBack }: { notebookId: string; onBac
       ),
     [setSources],
   )
+
+  const removeSource = useCallback(
+    (id: string) => setSources((list = []) => list.filter((s) => s.id !== id)),
+    [setSources],
+  )
+
+  // The open source keeps following the polled list, and closes when it is gone.
+  const openSource = (sources.data ?? []).find((s) => s.id === openSourceId) ?? null
+  const showSource = useCallback((id: string) => {
+    setOpenSourceId(id)
+    setTab('chat') // on narrow screens the main column is behind the chat tab
+  }, [])
+  const closeSource = useCallback(() => setOpenSourceId(null), [])
 
   function toggleSource(id: string) {
     setDeselected((current) => {
@@ -82,6 +97,7 @@ export function NotebookView({ notebookId, onBack }: { notebookId: string; onBac
   }
 
   const askFromGuide = useCallback((question: string) => {
+    setOpenSourceId(null)
     setTab('chat')
     chatRef.current?.ask(question)
   }, [])
@@ -144,21 +160,35 @@ export function NotebookView({ notebookId, onBack }: { notebookId: string; onBac
           sources={sources.data}
           loadError={sources.error}
           deselected={deselected}
+          openSourceId={openSourceId}
           onToggle={toggleSource}
           onToggleAll={toggleAll}
+          onOpen={showSource}
           onSourceChanged={upsertSource}
-          onSourceRemoved={(id) => setSources((list = []) => list.filter((s) => s.id !== id))}
-          onAsk={askFromGuide}
         />
-        <ChatPanel
-          ref={chatRef}
-          className={panelClass('chat')}
-          notebookId={notebookId}
-          sources={sources.data}
-          selectedSourceIds={selectedSourceIds}
-          onCitation={setCitation}
-          onNoteCreated={addNote}
-        />
+        {/* One grid cell for the main column: the chat stays mounted behind an open guide,
+            so a running answer is not interrupted by looking something up. */}
+        <div className={`${panelClass('chat')} min-h-0 flex-col`}>
+          {openSource && (
+            <SourceGuidePanel
+              className="flex-1"
+              source={openSource}
+              onClose={closeSource}
+              onAsk={askFromGuide}
+              onSourceChanged={upsertSource}
+              onSourceRemoved={removeSource}
+            />
+          )}
+          <ChatPanel
+            ref={chatRef}
+            className={openSource ? 'hidden' : 'flex-1'}
+            notebookId={notebookId}
+            sources={sources.data}
+            selectedSourceIds={selectedSourceIds}
+            onCitation={setCitation}
+            onNoteCreated={addNote}
+          />
+        </div>
         <NotesPanel
           className={panelClass('notes')}
           notebookId={notebookId}

@@ -1,92 +1,41 @@
 import { useState } from 'react'
-import { api } from '../api'
-import { errorText } from '../hooks'
 import type { Source } from '../types'
 import { AddSourceDialog } from './AddSourceDialog'
-import { useConfirm, usePrompt } from './Dialogs'
-import {
-  ChevronIcon,
-  EditIcon,
-  FileIcon,
-  LinkIcon,
-  PlusIcon,
-  RefreshIcon,
-  SparkIcon,
-  Spinner,
-  TrashIcon,
-} from './Icons'
+import { ChevronIcon, FileIcon, LinkIcon, PlusIcon, Spinner } from './Icons'
 
 interface Props {
   notebookId: string
   sources: Source[] | undefined
   loadError: string | null
   deselected: Set<string>
+  openSourceId: string | null
   onToggle: (sourceId: string) => void
   onToggleAll: (select: boolean) => void
+  onOpen: (sourceId: string) => void
   onSourceChanged: (source: Source) => void
-  onSourceRemoved: (sourceId: string) => void
-  onAsk: (question: string) => void
   className?: string
 }
 
+/**
+ * The list of sources: what exists, what state it is in, what feeds the answers. Opening a
+ * source shows its guide in the main column — a summary does not fit into this width.
+ */
 export function SourcePanel({
   notebookId,
   sources,
   loadError,
   deselected,
+  openSourceId,
   onToggle,
   onToggleAll,
+  onOpen,
   onSourceChanged,
-  onSourceRemoved,
-  onAsk,
   className = '',
 }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [expanded, setExpanded] = useState<string | null>(null)
-  const [actionError, setActionError] = useState<string | null>(null)
-  const [confirm, confirmDialog] = useConfirm()
-  const [prompt, promptDialog] = usePrompt()
 
   const ready = sources?.filter((s) => s.status === 'ready') ?? []
   const allSelected = ready.length > 0 && ready.every((s) => !deselected.has(s.id))
-
-  async function remove(source: Source) {
-    const ok = await confirm({
-      title: 'Quelle entfernen?',
-      body: `„${source.title}“ wird mit allen Abschnitten und Belegen gelöscht.`,
-      confirmLabel: 'Entfernen',
-      danger: true,
-    })
-    if (!ok) return
-    try {
-      await api.deleteSource(source.id)
-      onSourceRemoved(source.id)
-    } catch (err) {
-      setActionError(errorText(err))
-    }
-  }
-
-  async function rename(source: Source) {
-    const title = await prompt({
-      title: 'Quelle umbenennen',
-      label: 'Titel der Quelle',
-      initial: source.title,
-    })
-    if (!title || title === source.title) return
-    try {
-      onSourceChanged(await api.renameSource(source.id, title))
-    } catch (err) {
-      setActionError(errorText(err))
-    }
-  }
-
-  async function retryGuide(source: Source) {
-    try {
-      onSourceChanged(await api.regenerateGuide(source.id))
-    } catch (err) {
-      setActionError(errorText(err))
-    }
-  }
 
   return (
     <section className={`panel ${className}`} aria-label="Quellen">
@@ -110,7 +59,6 @@ export function SourcePanel({
       )}
 
       <div className="min-h-0 flex-1 overflow-y-auto p-2">
-        {actionError && <p className="px-2 pb-2 text-sm text-danger">{actionError}</p>}
         {loadError && <p className="px-2 pb-2 text-sm text-danger">{loadError}</p>}
         {sources === undefined && !loadError ? (
           <div className="flex justify-center py-8 text-muted">
@@ -132,13 +80,9 @@ export function SourcePanel({
                 key={source.id}
                 source={source}
                 selected={!deselected.has(source.id)}
-                expanded={expanded === source.id}
-                onExpand={() => setExpanded(expanded === source.id ? null : source.id)}
+                open={openSourceId === source.id}
+                onOpen={() => onOpen(source.id)}
                 onToggle={() => onToggle(source.id)}
-                onRemove={() => void remove(source)}
-                onRename={() => void rename(source)}
-                onRetryGuide={() => void retryGuide(source)}
-                onAsk={onAsk}
               />
             ))}
           </ul>
@@ -152,8 +96,6 @@ export function SourcePanel({
           onClose={() => setDialogOpen(false)}
         />
       )}
-      {confirmDialog}
-      {promptDialog}
     </section>
   )
 }
@@ -161,26 +103,12 @@ export function SourcePanel({
 interface ItemProps {
   source: Source
   selected: boolean
-  expanded: boolean
-  onExpand: () => void
+  open: boolean
+  onOpen: () => void
   onToggle: () => void
-  onRemove: () => void
-  onRename: () => void
-  onRetryGuide: () => void
-  onAsk: (question: string) => void
 }
 
-function SourceItem({
-  source,
-  selected,
-  expanded,
-  onExpand,
-  onToggle,
-  onRemove,
-  onRename,
-  onRetryGuide,
-  onAsk,
-}: ItemProps) {
+function SourceItem({ source, selected, open, onOpen, onToggle }: ItemProps) {
   const TypeIcon = source.type === 'url' ? LinkIcon : FileIcon
   const meta = [
     source.type.toUpperCase(),
@@ -191,27 +119,27 @@ function SourceItem({
     .join(' · ')
 
   return (
-    <li className={`rounded-xl ${expanded ? 'bg-surface-muted' : 'hover:bg-surface-muted'}`}>
+    <li className={`rounded-xl ${open ? 'bg-accent-soft' : 'hover:bg-surface-muted'}`}>
       <div className="flex items-center gap-2 px-2 py-2">
         <button
           className="flex min-w-0 flex-1 items-center gap-2 text-left"
-          onClick={onExpand}
-          aria-expanded={expanded}
-          disabled={source.status !== 'ready'}
+          onClick={onOpen}
+          aria-label={`${source.title} öffnen`}
         >
-          <ChevronIcon
-            size={14}
-            className={`shrink-0 text-muted transition-transform ${expanded ? 'rotate-90' : ''} ${source.status !== 'ready' ? 'invisible' : ''}`}
-          />
           <TypeIcon className="shrink-0 text-muted" />
           <span className="min-w-0">
             <span className="block truncate text-sm" title={source.origin ?? source.title}>
               {source.title}
             </span>
-            <span className="block truncate text-xs text-muted">
-              {source.status === 'processing' ? 'Wird verarbeitet …' : source.status === 'error' ? 'Fehler' : meta}
+            <span className={`block truncate text-xs ${source.status === 'error' ? 'text-danger' : 'text-muted'}`}>
+              {source.status === 'processing'
+                ? 'Wird verarbeitet …'
+                : source.status === 'error'
+                  ? 'Fehler'
+                  : meta}
             </span>
           </span>
+          <ChevronIcon size={14} className="ml-auto shrink-0 text-muted" />
         </button>
         {source.status === 'processing' && (
           <span className="text-accent">
@@ -227,72 +155,12 @@ function SourceItem({
             aria-label={`${source.title} für Antworten verwenden`}
           />
         )}
-        {source.status === 'error' && (
-          <button className="btn-danger p-1" onClick={onRemove} aria-label="Quelle entfernen">
-            <TrashIcon size={14} />
-          </button>
-        )}
       </div>
 
+      {/* Guides are long and live in the main column; an import error is two lines and
+          belongs where the failed source is. */}
       {source.status === 'error' && source.error && (
         <p className="px-4 pb-3 text-xs text-danger">{source.error}</p>
-      )}
-
-      {expanded && source.status === 'ready' && (
-        <div className="space-y-3 px-4 pb-4 text-sm">
-          <div className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-muted uppercase">
-            <SparkIcon size={14} /> Quellen-Guide
-          </div>
-          {source.guide_status === 'pending' && (
-            <p className="flex items-center gap-2 text-muted">
-              <Spinner size={14} /> Zusammenfassung wird erstellt …
-            </p>
-          )}
-          {source.guide_status === 'error' && (
-            <div className="space-y-2">
-              <p className="text-xs text-danger">{source.guide_error ?? 'Guide konnte nicht erstellt werden.'}</p>
-              <button className="btn-ghost -ml-3" onClick={onRetryGuide}>
-                <RefreshIcon /> Erneut versuchen
-              </button>
-            </div>
-          )}
-          {source.guide_status === 'ready' && (
-            <>
-              <p className="leading-relaxed">{source.summary}</p>
-              {source.key_topics.length > 0 && (
-                <ul className="flex flex-wrap gap-1.5">
-                  {source.key_topics.map((topic) => (
-                    <li key={topic} className="rounded-full border border-line bg-surface px-2 py-0.5 text-xs">
-                      {topic}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {source.suggested_questions.length > 0 && (
-                <ul className="space-y-1">
-                  {source.suggested_questions.map((question) => (
-                    <li key={question}>
-                      <button
-                        className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-left text-xs hover:border-accent"
-                        onClick={() => onAsk(question)}
-                      >
-                        {question}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </>
-          )}
-          <div className="-ml-3 flex flex-wrap gap-1">
-            <button className="btn-ghost" onClick={onRename}>
-              <EditIcon size={14} /> Umbenennen
-            </button>
-            <button className="btn-danger" onClick={onRemove}>
-              <TrashIcon size={14} /> Quelle entfernen
-            </button>
-          </div>
-        </div>
       )}
     </li>
   )

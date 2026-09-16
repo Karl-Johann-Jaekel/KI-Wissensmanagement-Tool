@@ -92,9 +92,13 @@ with sync_playwright() as p:
         timeout=120_000
     )
 
-    step("source guide")
-    page.get_by_role("button", name=re.compile(r"PDF · \d+ S\.")).click()
-    expect(page.get_by_text("Das Paper stellt den Transformer vor")).to_be_visible(timeout=30_000)
+    step("source guide opens in the main column")
+    page.get_by_role("button", name=re.compile(r"öffnen$")).first.click()
+    guide = page.get_by_role("region", name="Quelle", exact=True)
+    expect(guide).to_be_visible()
+    expect(guide.get_by_text("Das Paper stellt den Transformer vor")).to_be_visible(timeout=30_000)
+    # the chat is only hidden, not unmounted, so a running answer survives a lookup
+    expect(page.get_by_role("region", name="Chat")).to_be_hidden()
     page.screenshot(path=OUT / "01-guide.png")
 
     step("rename source")
@@ -103,7 +107,8 @@ with sync_playwright() as p:
     expect(page.get_by_role("button", name=re.compile(r"^Transformer-Paper"))).to_be_visible()
 
     step("suggested question → answer with citation chips")
-    page.get_by_role("button", name="Wie viele Attention-Heads nutzt das Basismodell?").first.click()
+    guide.get_by_role("button", name="Wie viele Attention-Heads nutzt das Basismodell?").click()
+    expect(guide).to_be_hidden()  # asking returns to the chat
     chips = page.get_by_role("button", name=re.compile(r"^Quelle \d+:"))
     expect(chips.first).to_be_visible(timeout=30_000)
     answer = page.locator("article").last.inner_text()
@@ -138,7 +143,8 @@ with sync_playwright() as p:
     page.get_by_role("button", name="Als Notiz speichern").first.click()
     notes = page.get_by_role("region", name="Notizen")
     notes.get_by_role("button", name=re.compile("Wie viele Attention-Heads")).click()
-    expect(notes.get_by_text("Quellen:")).to_be_visible()
+    # the saved answer keeps clickable citations, not a flat list of source names
+    expect(notes.get_by_role("button", name=re.compile(r"^Quelle \d+:")).first).to_be_visible()
     notes.get_by_role("button", name="Bearbeiten").click()
     notes.get_by_label("Titel der Notiz").fill("Attention-Heads (bearbeitet)")
     notes.get_by_role("button", name="Speichern").click()
