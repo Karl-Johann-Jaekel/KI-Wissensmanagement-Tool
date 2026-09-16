@@ -41,8 +41,12 @@ den Guide per Map-Reduce erzeugt. Bricht sie ab, ist das Notebook mit den drei k
 trotzdem benutzbar.
 
 Gemessen lokal (Ryzen 7 5800H, `ministral-14b-latest`): KI-Verordnung 162 s (578 Abschnitte,
-Guide per Map-Reduce), die anderen Quellen 12–30 s. Das Backend brauchte dabei in der Spitze
-1,65 GiB RAM (Limit im Compose: 2 GiB).
+Guide per Map-Reduce), die anderen Quellen 12–30 s. Auf dem VPS (4 vCPU, AMD EPYC) dauerte der
+gesamte Lauf 293 s: WKO 18 s, MVK-KI 33 s, DSK 54 s, KI-Verordnung 188 s.
+
+Speicher: lokal 1,65 GiB in der Spitze, auf dem VPS 1,95 GiB — und das Backend gibt den Heap
+danach nicht zurück (vorher im Leerlauf 855 MiB). Deshalb steht das Limit im Compose auf 3 GiB
+statt 2 GiB.
 
 ## Demo-Fragen
 
