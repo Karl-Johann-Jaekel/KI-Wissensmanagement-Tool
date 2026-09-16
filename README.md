@@ -5,6 +5,8 @@ Aussage mit einem klickbaren Beleg, der die Originalpassage öffnet.
 
 **Live: [notebook.jaekel.dev](https://notebook.jaekel.dev)** — der Access-Key steht in der Abgabe-Mail.
 
+[![CI](https://github.com/Karl-Johann-Jaekel/KI-Wissensmanagement-Tool/actions/workflows/ci.yml/badge.svg)](https://github.com/Karl-Johann-Jaekel/KI-Wissensmanagement-Tool/actions/workflows/ci.yml)
+
 Entstanden als Bewerbungsaufgabe in einer 3-Tage-Zeitbox. Vorgehen und Status: [plan.md](plan.md),
 Entscheidungen: [docs/adr/](docs/adr/README.md), Arbeit mit AI-Tools: [docs/prompts.md](docs/prompts.md).
 
@@ -128,6 +130,11 @@ docker compose exec backend pytest                      # Fake-LLM + Fake-Embedd
 docker compose exec backend ruff check . && docker compose exec backend mypy app
 cd frontend && npm run build && npm run lint
 ```
+
+Dieselben Prüfungen laufen bei jedem Push und jedem Pull Request in
+[GitHub Actions](.github/workflows/ci.yml) — Backend gegen einen echten Postgres mit pgvector,
+Frontend als Build und Lint. Nur der Browser-E2E bleibt lokal: er baut den kompletten Stack
+inklusive des 470 MB großen Embedding-Modells.
 
 ### Browser-E2E
 
