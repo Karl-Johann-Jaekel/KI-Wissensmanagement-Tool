@@ -35,7 +35,10 @@ ACCESS_KEY=... python demo/seed.py --base-url https://notebook.example.org
 ```
 
 Das Skript ist idempotent (vorhandene Quellen werden übersprungen, fehlgeschlagene neu
-importiert) und importiert nacheinander, um die Free-Tier-Limits zu schonen.
+importiert) und importiert nacheinander, um die Free-Tier-Limits zu schonen. Die Reihenfolge ist
+aufsteigend nach Umfang: die KI-Verordnung kommt zuletzt, weil sie als Einzige Minuten braucht und
+den Guide per Map-Reduce erzeugt. Bricht sie ab, ist das Notebook mit den drei kurzen Quellen
+trotzdem benutzbar.
 
 Gemessen lokal (Ryzen 7 5800H, `ministral-14b-latest`): KI-Verordnung 162 s (578 Abschnitte,
 Guide per Map-Reduce), die anderen Quellen 12–30 s. Das Backend brauchte dabei in der Spitze
