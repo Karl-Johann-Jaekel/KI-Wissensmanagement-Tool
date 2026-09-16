@@ -143,7 +143,16 @@ with sync_playwright() as p:
     expect(drawer).to_be_hidden()
 
     step("question outside the sources")
+    send = page.get_by_label("Senden")
+    background = "el => getComputedStyle(el).backgroundColor"
+    # grey while there is nothing to send, accent colour as soon as there is
+    expect(send).to_be_disabled()
+    idle = send.evaluate(background)
     page.get_by_label("Frage").fill("Wie wird das Wetter morgen?")
+    expect(send).to_be_enabled()
+    page.wait_for_timeout(400)  # the button transitions its colours
+    assert send.evaluate(background) != idle, "send button must change colour once there is text"
+    page.screenshot(path=OUT / "02c-composer.png")
     page.keyboard.press("Enter")
     expect(page.get_by_text("Dazu enthalten die Quellen keine Angaben.")).to_be_visible(
         timeout=30_000
@@ -203,6 +212,9 @@ with sync_playwright() as p:
     dark_page.goto(notebook_url)
     expect(dark_page.get_by_role("button", name=re.compile(r"^Quelle \d+:")).first).to_be_visible()
     dark_page.screenshot(path=OUT / "05-dark.png")
+    dark_page.goto(BASE)
+    expect(dark_page.get_by_role("heading", name="Notebooks")).to_be_visible()
+    dark_page.screenshot(path=OUT / "05b-dark-list.png")
 
     step("mobile layout")
     mobile = browser.new_context(

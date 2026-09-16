@@ -158,7 +158,7 @@ export function NotebookList({ onOpen }: { onOpen: (id: string) => void }) {
             </>
           )}
 
-          <button className="btn-primary px-4 py-2" onClick={create} disabled={busy}>
+          <button className="btn-elevated px-4 py-2" onClick={create} disabled={busy}>
             {busy ? <Spinner /> : <PlusIcon />} Neues Notebook
           </button>
         </div>

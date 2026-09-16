@@ -11,6 +11,10 @@
   --accent: #3b5bdb;
   --accent-fg: #ffffff;
   --accent-soft: #e6ebfd;
+  /* Not redefined for dark mode on purpose: NotebookLM's create button is a white pill in
+     both themes, and that is what makes it read as the main action. */
+  --pill: #ffffff;
+  --pill-fg: #1b1f24;
   --highlight: #fff1b8;
   --danger: #c92a2a;
   --danger-fg: #ffffff;
@@ -47,6 +51,8 @@
   --color-accent: var(--accent);
   --color-accent-fg: var(--accent-fg);
   --color-accent-soft: var(--accent-soft);
+  --color-pill: var(--pill);
+  --color-pill-fg: var(--pill-fg);
   --color-highlight: var(--highlight);
   --color-danger: var(--danger);
   --color-danger-fg: var(--danger-fg);
@@ -75,6 +81,9 @@ body {
 }
 @utility btn-primary {
   @apply btn bg-accent text-accent-fg hover:opacity-90;
+}
+@utility btn-elevated {
+  @apply btn bg-pill text-pill-fg shadow-sm hover:opacity-90;
 }
 @utility btn-ghost {
   @apply btn text-muted hover:bg-surface-muted hover:text-fg;
