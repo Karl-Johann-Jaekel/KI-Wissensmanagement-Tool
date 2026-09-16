@@ -45,12 +45,6 @@ export const TrashIcon = (p: IconProps) => (
   </Icon>
 )
 
-export const SendIcon = (p: IconProps) => (
-  <Icon {...p}>
-    <path d="M4 12l16-8-6 16-3-7-7-1z" />
-  </Icon>
-)
-
 export const FileIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M14 3H6v18h12V7l-4-4z" />
@@ -100,6 +94,12 @@ export const CopyIcon = (p: IconProps) => (
   <Icon {...p}>
     <rect x="9" y="9" width="11" height="11" rx="2" />
     <path d="M6 15H5a2 2 0 01-2-2V5a2 2 0 012-2h8a2 2 0 012 2v1" />
+  </Icon>
+)
+
+export const ArrowRightIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M5 12h13M12 5l7 7-7 7" />
   </Icon>
 )
 

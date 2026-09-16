@@ -11,7 +11,15 @@ import { ApiError, api } from '../api'
 import { errorText, useLoader } from '../hooks'
 import type { ChatResponse, Citation, Message, Note, Notebook, Source } from '../types'
 import { useConfirm } from './Dialogs'
-import { CopyIcon, NoteIcon, RefreshIcon, SendIcon, SparkIcon, Spinner, TrashIcon } from './Icons'
+import {
+  ArrowRightIcon,
+  CopyIcon,
+  NoteIcon,
+  RefreshIcon,
+  SparkIcon,
+  Spinner,
+  TrashIcon,
+} from './Icons'
 import { RichText } from './RichText'
 
 export interface ChatHandle {
@@ -142,6 +150,7 @@ export function ChatPanel({
   }
 
   const list = messages.data ?? []
+  const ready = canAsk && draft.trim().length > 0 && !pending
 
   return (
     <section className={`panel ${className}`} aria-label="Chat">
@@ -237,9 +246,13 @@ export function ChatPanel({
           </div>
         )}
         {noteError && <p className="mb-2 text-sm text-danger">{noteError}</p>}
-        <form onSubmit={onSubmit} className="flex items-end gap-2">
+        {/* One rounded field holding the text and the send button, like NotebookLM. */}
+        <form
+          onSubmit={onSubmit}
+          className="flex items-end gap-2 rounded-3xl border border-line bg-surface px-3 py-2 transition-colors focus-within:border-accent"
+        >
           <textarea
-            className="input max-h-40 min-h-11 resize-none"
+            className="max-h-40 min-h-9 flex-1 resize-none bg-transparent py-1.5 text-sm text-fg outline-none placeholder:text-muted"
             rows={1}
             placeholder={
               readySources.length === 0
@@ -254,8 +267,15 @@ export function ChatPanel({
             disabled={!canAsk}
             aria-label="Frage"
           />
-          <button className="btn-primary size-11 shrink-0 p-0" disabled={!canAsk || !draft.trim() || !!pending} aria-label="Senden">
-            {pending ? <Spinner /> : <SendIcon />}
+          {/* Grey until there is something to send, then it turns into the accent colour. */}
+          <button
+            className={`btn size-9 shrink-0 p-0 ${
+              ready ? 'bg-accent text-accent-fg hover:opacity-90' : 'bg-surface-muted text-muted'
+            }`}
+            disabled={!ready}
+            aria-label="Senden"
+          >
+            {pending ? <Spinner size={15} /> : <ArrowRightIcon size={18} />}
           </button>
         </form>
         <p className="mt-2 text-center text-[11px] text-muted">
@@ -357,7 +377,7 @@ function EmptyChat({
               {suggestions.map((question) => (
                 <li key={question}>
                   <button
-                    className="w-full rounded-xl border border-line px-4 py-2.5 text-left text-sm hover:border-accent hover:bg-accent-soft"
+                    className="w-full rounded-2xl border border-line px-4 py-2.5 text-left text-sm hover:border-accent hover:bg-accent-soft"
                     onClick={() => onAsk(question)}
                   >
                     {question}
