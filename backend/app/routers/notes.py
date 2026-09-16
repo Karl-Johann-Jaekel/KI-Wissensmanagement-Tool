@@ -1,0 +1,98 @@
+import uuid
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Response, status
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.db import get_db
+from app.models import Message, Note, Notebook
+from app.routers.common import get_or_404
+from app.schemas import NoteCreate, NoteOut, NoteUpdate
+
+router = APIRouter(tags=["notes"])
+DB = Annotated[Session, Depends(get_db)]
+
+TITLE_CHARS = 120
+
+
+@router.get("/notebooks/{notebook_id}/notes", response_model=list[NoteOut])
+def list_notes(notebook_id: uuid.UUID, db: DB) -> list[Note]:
+    get_or_404(db, Notebook, notebook_id)
+    return list(
+        db.scalars(
+            select(Note).where(Note.notebook_id == notebook_id).order_by(Note.updated_at.desc())
+        )
+    )
+
+
+@router.post(
+    "/notebooks/{notebook_id}/notes", response_model=NoteOut, status_code=status.HTTP_201_CREATED
+)
+def create_note(notebook_id: uuid.UUID, payload: NoteCreate, db: DB) -> Note:
+    get_or_404(db, Notebook, notebook_id)
+    note = Note(notebook_id=notebook_id, title=payload.title.strip(), content=payload.content)
+    db.add(note)
+    db.commit()
+    db.refresh(note)
+    return note
+
+
+@router.post(
+    "/notebooks/{notebook_id}/notes/from-message/{message_id}",
+    response_model=NoteOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_note_from_message(notebook_id: uuid.UUID, message_id: uuid.UUID, db: DB) -> Note:
+    """Save an answer as note; citations become a readable source list."""
+    message = get_or_404(db, Message, message_id)
+    if message.notebook_id != notebook_id or message.role != "assistant":
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Answer not found")
+
+    question = db.scalar(
+        select(Message.content)
+        .where(
+            Message.notebook_id == notebook_id,
+            Message.role == "user",
+            Message.created_at <= message.created_at,
+            Message.id != message.id,
+        )
+        .order_by(Message.created_at.desc())
+        .limit(1)
+    )
+    title = (question or "Gespeicherte Antwort").strip()
+    if len(title) > TITLE_CHARS:
+        title = title[: TITLE_CHARS - 1].rstrip() + "…"
+
+    content = message.content
+    if message.citations:
+        lines = []
+        for citation in message.citations:
+            page = f", S. {citation['page']}" if citation.get("page") else ""
+            lines.append(f"[{citation['n']}] {citation['source_title']}{page}")
+        content = f"{content}\n\nQuellen:\n" + "\n".join(lines)
+
+    note = Note(notebook_id=notebook_id, title=title, content=content)
+    db.add(note)
+    db.commit()
+    db.refresh(note)
+    return note
+
+
+@router.patch("/notes/{note_id}", response_model=NoteOut)
+def update_note(note_id: uuid.UUID, payload: NoteUpdate, db: DB) -> Note:
+    note = get_or_404(db, Note, note_id)
+    if payload.title is not None:
+        note.title = payload.title.strip()
+    if payload.content is not None:
+        note.content = payload.content
+    db.commit()
+    db.refresh(note)
+    return note
+
+
+@router.delete("/notes/{note_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_note(note_id: uuid.UUID, db: DB) -> Response:
+    db.delete(get_or_404(db, Note, note_id))
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
