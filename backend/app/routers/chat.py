@@ -29,7 +29,19 @@ DB = Annotated[Session, Depends(get_db)]
 
 HISTORY_MESSAGES = 6
 HISTORY_CHARS = 400
-FOLLOW_UP_MAX_WORDS = 6
+
+# Words that point back at the previous turn. Articles are left out on purpose: in
+# "Ab wann gilt die Verordnung?" the "die" belongs to a complete question, not to a follow-up.
+_ANAPHORA = frozenset(
+    """
+    dies diese dieser dieses diesem diesen dazu davon darin darauf dabei dafür dagegen daraus
+    darüber darunter hierzu hierbei hierfür dort dessen deren jene jener jenes ihn ihm ihnen
+    this these those it its they them their
+    """.split()  # noqa: SIM905 - a word list reads better as text
+)
+_LEADING_CONJUNCTIONS = frozenset({"und", "aber", "and", "but"})
+# ambiguous words that are a pronoun only at the very end: "Was bedeutet das?"
+_TRAILING_PRONOUNS = frozenset({"das", "sie", "es", "that"})
 
 
 @router.get("/notebooks/{notebook_id}/messages", response_model=list[MessageOut])
@@ -168,13 +180,14 @@ def retrieve_passages(
     """
     if source_ids is not None and not source_ids:
         return []
-    retrieval_query = _retrieval_query(question, history)
+    # Word and reference matching use the question as asked. Only the meaning-based vector
+    # search borrows the previous question, and only for a genuine follow-up.
     retrieved: list[RetrievedChunk] = hybrid_search(
         db,
         notebook_id=notebook_id,
         source_ids=source_ids,
-        question=retrieval_query,
-        query_vector=embedder.embed_query(retrieval_query),
+        question=question,
+        query_vector=embedder.embed_query(_vector_query(question, history)),
         candidates=settings.retrieval_candidates,
         top_k=settings.retrieval_top_k,
     )
@@ -230,9 +243,24 @@ def _recent_history(db: Session, notebook_id: uuid.UUID) -> list[Message]:
     return list(reversed(rows))
 
 
-def _retrieval_query(question: str, history: list[Message]) -> str:
-    """Short follow-ups ("und warum?") get the previous question as retrieval context."""
-    if len(question.split()) > FOLLOW_UP_MAX_WORDS:
+def is_follow_up(question: str) -> bool:
+    """Does the question lean on the previous one? ("Und warum?", "Was bedeutet das?")"""
+    words = [w.lower() for w in re.findall(r"\w+", question)]
+    if not words:
+        return False
+    if words[0] in _LEADING_CONJUNCTIONS or words[-1] in _TRAILING_PRONOUNS:
+        return True
+    return any(word in _ANAPHORA for word in words)
+
+
+def _vector_query(question: str, history: list[Message]) -> str:
+    """A follow-up carries little meaning on its own, so the vector search gets context.
+
+    Full-text and reference ranking never get it: they would keep matching words and article
+    numbers the user has already moved on from. A short question used to be enough to borrow
+    the previous one, which made "Ab wann gilt die Verordnung?" search for "Artikel 50".
+    """
+    if not is_follow_up(question):
         return question
     previous = next((m.content for m in reversed(history) if m.role == "user"), None)
     return f"{previous} {question}" if previous else question

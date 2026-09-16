@@ -90,13 +90,21 @@ Gemeinsamer Nenner: Prompt-Fehler zeigen sich nicht im Test gegen einen Fake, so
 echten Dokumenten. Deshalb steht in der Definition of Done „einmal real per API ausgeführt"
 neben den Testbefehlen.
 
-## Bekannte Grenze
+## Eine falsche Diagnose
 
-Der verdichtete Chatverlauf färbt gelegentlich ab. Wird „Was regelt Artikel 50?" gefragt und
-direkt danach eine Frage zu einem anderen Thema, kann die zweite Antwort Artikel 50 erwähnen,
-obwohl er nicht gefragt war — die Belege bleiben dabei korrekt. Nicht behoben, weil jede
-schärfere Verdichtung echte Anschlussfragen („und warum?") kaputtmacht. Wer das Thema wechselt,
-leert den Verlauf.
+Das Abfärben einer Frage auf die nächste stand hier zuerst als „bekannte Grenze": der verdichtete
+Chatverlauf sei schuld und lasse sich nicht schärfen, ohne echte Anschlussfragen kaputtzumachen.
+Das war falsch, und gefunden hat es ein externes Audit, nicht die eigene Prüfung.
+
+Die tatsächliche Ursache lag im Retrieval. Jede Frage mit höchstens sechs Wörtern bekam die vorige
+vorangestellt — und dieser zusammengesetzte Text ging nicht nur an die Vektorsuche, sondern auch an
+die Volltextsuche und an die doppelt gewichtete Normverweis-Suche. „Ab wann gilt die
+KI-Verordnung?" suchte nach „Was regelt Artikel 50?" also nach Artikel 50.
+
+Jetzt suchen Volltext und Normverweise ausschließlich mit der gestellten Frage. Nur die
+Vektorsuche bekommt die vorige Frage als Kontext, und nur bei einer echten Rückbezüglichkeit
+(„Und warum?", „Was bedeutet das?", „Gilt das auch für diese Anbieter?"). Ein Regressionstest mit
+genau diesem Fragenpaar scheitert am alten Code und besteht am neuen.
 
 ## Prompts im Produkt
 
