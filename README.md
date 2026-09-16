@@ -3,6 +3,8 @@
 Quellen hochladen, Fragen stellen, Antworten **ausschließlich aus den Quellen** erhalten – jede
 Aussage mit einem klickbaren Beleg, der die Originalpassage öffnet.
 
+**Live: [notebook.jaekel.dev](https://notebook.jaekel.dev)** — der Access-Key steht in der Abgabe-Mail.
+
 Entstanden als Bewerbungsaufgabe in einer 3-Tage-Zeitbox. Vorgehen und Status: [plan.md](plan.md),
 Entscheidungen: [docs/adr/](docs/adr/README.md), Arbeit mit AI-Tools: [docs/prompts.md](docs/prompts.md).
 
@@ -86,6 +88,22 @@ Alle Werte in [.env.example](.env.example). Die wichtigsten:
 | `MISTRAL_FALLBACK_MODEL` | springt ein, wenn das Hauptmodell limitiert ist; Standard `ministral-8b-latest`, leer = aus ([ADR-09](docs/adr/009-llm-fallback.md)) |
 | `FRONTEND_PORT` | Host-Port des Frontends, nur an `127.0.0.1` gebunden |
 | `CHUNK_MAX_CHARS`, `RETRIEVAL_TOP_K` | Chunk-Größe und Anzahl Passagen pro Antwort |
+
+## Produktiv-Deployment
+
+Die Live-Instanz läuft auf einem eigenen VPS hinter einem gemeinsamen Caddy, der TLS für alle
+Hosts der Maschine übernimmt ([ADR-06](docs/adr/006-deployment-vps.md)). Produktiv läuft derselbe
+Stack wie lokal, nur ohne die Entwicklungs-Override-Datei:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.mainserver.yml up -d --build
+```
+
+Die Overlay-Datei `docker-compose.mainserver.yml` liegt auf dem Server, nicht im Repo — ein
+frischer Klon soll eigenständig lauffähig bleiben. Sie nimmt dem Frontend die Host-Bindung
+(`ports: !reset []`) und hängt es ins externe Docker-Netz `web`, in dem auch Caddy liegt; der
+Inhalt steht in ADR-06. Produktiv hat damit kein Container einen Host-Port: Backend und Postgres
+sind nur im Compose-Netz erreichbar, das Frontend nur für Caddy.
 
 ## Tests
 
