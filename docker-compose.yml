@@ -34,7 +34,10 @@ services:
       timeout: 5s
       retries: 12
       start_period: 30s
-    mem_limit: 2g
+    # Ingesting the 200-page AI Act peaked at 1.95 GiB on the VPS (1.65 GiB locally) and the
+    # heap is not returned afterwards. 2g left ~50 MiB of headroom — one upload away from an
+    # OOM kill, so the limit follows the measurement.
+    mem_limit: 3g
 
   frontend:
     build:
