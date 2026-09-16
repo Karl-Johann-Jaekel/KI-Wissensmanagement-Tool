@@ -66,8 +66,13 @@ Regeln:
 - Schreibe in der Sprache der Quellen, als reinen Text ohne Markdown.
 - summary: 3–5 Sätze. Was deckt die Sammlung als Ganzes ab, wo ergänzen oder überschneiden sich
   die Quellen? Keine Aufzählung der Titel.
-- key_questions: 3–4 kurze Fragen (je höchstens 14 Wörter), die sich mit diesen Quellen
-  beantworten lassen. Bevorzuge Fragen, die mehr als eine Quelle berühren.
+- key_questions: 3–4 Fragen (je höchstens 14 Wörter), die eine der Quellen direkt beantwortet.
+  Frage nach Inhalten, die in den Zusammenfassungen vorkommen: "Was regelt ...?",
+  "Welche Pflichten gelten für ...?", "Wie ist ... definiert?".
+  Verteile die Fragen über verschiedene Quellen, statt mehrere Quellen in eine Frage zu packen.
+  Keine Vergleichs-, Bewertungs- oder Schlussfolgerungsfragen ("Inwiefern unterscheiden sich ...",
+  "Wie lassen sich ... kombinieren", "Wie wirkt sich ... aus"): so etwas steht an keiner
+  einzelnen Stelle im Text, und die Antwort müsste ausweichen.
 - Stütze dich nur auf die gegebenen Zusammenfassungen. Erfinde nichts."""
 
 OVERVIEW_USER = """Notebook: {title}

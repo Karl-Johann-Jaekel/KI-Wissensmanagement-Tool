@@ -24,6 +24,9 @@ log = logging.getLogger(__name__)
 
 MAX_SECTIONS = 4
 TITLE_CHARS = 300
+# A briefing section stands on its own, without a follow-up question to fill gaps, so it gets
+# more passages to work with than a chat turn.
+PASSAGE_FACTOR = 2
 _MARKER = re.compile(r"\[(\d+)\]")
 
 
@@ -46,6 +49,9 @@ def build_briefing(
             "Für ein Briefing fehlen Fragen. Warte, bis die Quellen-Guides fertig sind."
         )
 
+    settings = settings.model_copy(
+        update={"retrieval_top_k": settings.retrieval_top_k * PASSAGE_FACTOR}
+    )
     parts = [prompts.BRIEFING_INTRO.format(title=notebook.title)]
     citations: list[Citation] = []
     numbers: dict[str, int] = {}  # chunk id -> number in the finished document
