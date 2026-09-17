@@ -24,7 +24,7 @@ Aufgenommen mit [e2e/screenshots.py](e2e/screenshots.py).</sub>
 | Quellen | PDF (mit Textebene), TXT, Markdown, Webseiten-Import; Verarbeitung im Hintergrund mit Statusanzeige |
 | Quellen-Guide | automatische Zusammenfassung, Kernthemen und drei Fragevorschläge je Quelle, geöffnet in der Hauptspalte |
 | Notebook-Überblick | was die Quellen gemeinsam abdecken, plus Fragen über mehrere Quellen hinweg ([ADR-12](docs/adr/012-notebook-overview.md)) |
-| Chat | Antworten nur aus den Quellen, im Schreiben sichtbar (Streaming), Inline-Zitate `[1]`, expliziter Hinweis, wenn die Quellen nichts hergeben |
+| Chat | Antworten nur aus den Quellen, im Schreiben sichtbar (Streaming), Inline-Zitate `[1]`, expliziter Hinweis, wenn die Quellen nichts hergeben; eine Antwort ohne jeden Beleg wird als ungeprüft markiert ([ADR-14](docs/adr/014-prompt-injection.md)) |
 | Zitat-Viewer | Vorschau der Passage beim Überfahren eines Zitats, Klick öffnet sie hervorgehoben mit Quelle, Seite und Nachbarabschnitten |
 | Quellen-Filter | pro Quelle wählbar, ob sie in Antworten einfließt |
 | Studio | was das Notebook aus seinen Quellen erzeugen kann, an einer Stelle: Briefing, FAQ, Themenkarte – darunter die Notizen |
@@ -77,6 +77,73 @@ der Text beim Entstehen, zuletzt die geprüfte Fassung mit klickbaren Belegen ([
 | Überblick aus den Guides statt aus dem Volltext | [ADR-12](docs/adr/012-notebook-overview.md) |
 | Berichte als Kette gewöhnlicher Antworten | [ADR-13](docs/adr/013-briefing-document.md) |
 
+## Retrieval-Qualität
+
+Gemessen mit [backend/scripts/retrieval_eval.py](backend/scripts/retrieval_eval.py) gegen das
+Demo-Notebook auf der Live-Instanz: 17 Fragen, deren Antwort nachweislich in den Quellen steht, und
+5 Fragen, die die Quellen nicht beantworten. Die erwarteten Seiten wurden in den gespeicherten
+Abschnitten nachgeschlagen, nicht geschätzt. Kein LLM-Aufruf – gemessen wird nur, was an das Modell
+weitergegeben würde.
+
+| Rangliste | Fragen | hit@8 | MRR@8 |
+|---|---|---|---|
+| Vektor | 17 | 71 % | 0,53 |
+| Volltext | 17 | 59 % | 0,26 |
+| Normverweis | 3 | 100 % | 0,47 |
+| **RRF, alle drei fusioniert** | 17 | **94 %** | **0,59** |
+
+Die Fusion findet die Antwort in 16 von 17 Fällen unter den ersten acht Passagen; die beste
+Einzelliste in 12. Die Normverweis-Liste wird nur an den drei Fragen mit Artikelnummer gemessen, ohne
+Verweis liefert sie absichtlich nichts – dort ist sie aber unersetzlich: „Was regelt Artikel 50?"
+findet weder die Vektor- noch die Volltextsuche, der Normverweis steht auf Rang 1.
+
+**Der eine Fehlschlag:** „Wie hoch sind die Geldbußen?" Die Beträge für Unternehmen stehen auf S. 168
+und 169 der KI-Verordnung; keine Liste bringt sie unter die ersten acht. Gefunden werden ein
+Erwägungsgrund zu Sanktionen ohne Beträge und S. 171 mit den Bußgeldern für EU-Organe.
+
+| Vektor-Distanz des besten Treffers | Fragen | min | Median | max |
+|---|---|---|---|---|
+| beantwortbar | 17 | 0,094 | 0,127 | 0,177 |
+| nicht beantwortbar | 5 | 0,185 | 0,205 | 0,267 |
+
+In dieser Stichprobe trennt die Distanz beide Gruppen, aber mit 0,008 Abstand und nur fünf
+unbeantwortbaren Fragen. Das reicht nicht für eine feste Schwelle, ab der das Backend selbst „nicht in
+den Quellen" antwortet – diese Entscheidung bleibt beim Modell, und die Zitatprüfung
+([ADR-05](docs/adr/005-validated-citations.md), [ADR-14](docs/adr/014-prompt-injection.md)) fängt
+Antworten ohne Beleg ab.
+
+<details>
+<summary>Alle 22 Fragen mit Rang je Liste</summary>
+
+| Frage | Vektor | Volltext | Normverweis | RRF | Distanz |
+|---|---|---|---|---|---|
+| Was regelt Artikel 50 der KI-Verordnung? | ✗ | ✗ | 1 | 2 | 0,120 |
+| Welche Praktiken verbietet Artikel 5 der KI-Verordnung? | 1 | ✗ | 6 | 1 | 0,123 |
+| Was verlangt Artikel 4 zur KI-Kompetenz? | ✗ | ✗ | 4 | 6 | 0,111 |
+| Welche KI-Praktiken sind verboten? | 2 | 4 | · | 1 | 0,121 |
+| Nach welchen Regeln wird ein KI-System als hochriskant eingestuft? | 4 | 4 | · | 1 | 0,094 |
+| Welche Aufzeichnungspflichten gelten für Hochrisiko-KI-Systeme? | 2 | ✗ | · | 5 | 0,102 |
+| Wie hoch sind die Geldbußen bei Verstößen gegen die KI-Verordnung? | ✗ | ✗ | · | ✗ | 0,136 |
+| Ab wann gilt die KI-Verordnung? | 1 | ✗ | · | 3 | 0,094 |
+| Welche technisch-organisatorischen Maßnahmen sieht der Mustervertrag vor? | ✗ | 4 | · | 8 | 0,167 |
+| Was muss der Auftragsverarbeiter tun, bevor er einen weiteren Auftragsverarbeiter einsetzt? | 1 | 1 | · | 1 | 0,133 |
+| Wie lange läuft die Vereinbarung zur Auftragsverarbeitung? | 1 | 2 | · | 1 | 0,140 |
+| Was gilt für Verarbeitungen in Drittstaaten? | 1 | ✗ | · | 1 | 0,133 |
+| Was versteht die DSK unter Halluzinationen? | 1 | 1 | · | 1 | 0,177 |
+| Wie werden personenbezogene Daten in einem RAG-System gelöscht? | 3 | 5 | · | 2 | 0,127 |
+| Aus welchen Komponenten besteht ein RAG-System? | 2 | 3 | · | 2 | 0,131 |
+| Welche Rechte an Datensätzen regeln die Mustervertragsklauseln? | ✗ | 2 | · | 4 | 0,132 |
+| Welches Auditrecht haben öffentliche Einrichtungen nach den MVK-KI? | 1 | 8 | · | 2 | 0,111 |
+| Wie hoch ist der gesetzliche Mindestlohn in Deutschland? | – | – | – | – | 0,203 |
+| Wer hat die Fußball-Weltmeisterschaft 2014 gewonnen? | – | – | – | – | 0,267 |
+| Welche Wirkstoffe enthält Ibuprofen? | – | – | – | – | 0,205 |
+| Wie funktioniert die Photosynthese bei Pflanzen? | – | – | – | – | 0,222 |
+| Wie hoch ist die Einkommensteuer für Selbstständige? | – | – | – | – | 0,185 |
+
+✗ = nicht unter den ersten acht, · = keine Artikelnummer in der Frage
+
+</details>
+
 ## Lokal starten
 
 Voraussetzung: Docker mit Compose.
@@ -108,6 +175,7 @@ Alle Werte in [.env.example](.env.example). Die wichtigsten:
 | `MISTRAL_FALLBACK_MODEL` | springt ein, wenn das Hauptmodell limitiert ist; Standard `ministral-8b-latest`, leer = aus ([ADR-09](docs/adr/009-llm-fallback.md)) |
 | `FRONTEND_PORT` | Host-Port des Frontends, nur an `127.0.0.1` gebunden |
 | `CHUNK_MAX_CHARS`, `RETRIEVAL_TOP_K` | Chunk-Größe und Anzahl Passagen pro Antwort |
+| `INGEST_CONCURRENCY` | wie viele Uploads gleichzeitig verarbeitet werden; Standard 1, weil ein großes PDF allein fast 2 GiB belegt |
 
 ## Produktiv-Deployment
 
@@ -140,9 +208,11 @@ inklusive des 470 MB großen Embedding-Modells.
 
 ### Browser-E2E
 
-Klickt den Kern-Workflow im echten Browser durch (Upload → Guide → Frage → Zitat → Notiz,
-Quellenfilter, SSRF-Block, Dark Mode, Mobil-Layout) und schlägt bei jeder Console-Warnung fehl.
-Ein Mock-LLM spricht die Mistral-API, es wird kein Kontingent verbraucht.
+Klickt den Kern-Workflow in 23 Schritten im echten Browser durch – Upload, Guide, Überblick,
+Frage mit Beleg, Zitat-Viewer, Absage außerhalb der Quellen, Markierung einer Antwort ohne Beleg,
+Notiz, Themenkarte, Briefing, FAQ, Quellenfilter, SSRF-Block, Dunkelmodus, Mobil-Layout – und
+schlägt bei jeder Console-Warnung und jedem nativen Browserdialog fehl. Ein Mock-LLM spricht die
+Mistral-API, es wird kein Kontingent verbraucht.
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.override.yml -f e2e/docker-compose.e2e.yml up -d --build
@@ -158,17 +228,30 @@ Die Screenshots in diesem README erzeugt [e2e/screenshots.py](e2e/screenshots.py
 laufende Instanz — Chat und Notizen des Ziel-Notebooks werden davor und danach geleert, die
 Bilder sind also wiederholbar.
 
+### Prüfungen gegen das echte Modell
+
+Zwei Skripte laufen bewusst außerhalb von `pytest`, weil sie echte Daten oder das echte Modell
+brauchen:
+
+| Skript | Prüft |
+|---|---|
+| [backend/scripts/retrieval_eval.py](backend/scripts/retrieval_eval.py) | Rangqualität je Suchliste gegen das Demo-Notebook, ohne LLM-Aufruf ([Retrieval-Qualität](#retrieval-qualität)) |
+| [backend/scripts/prompt_injection_check.py](backend/scripts/prompt_injection_check.py) | ob eine Quelle mit eingeschleuster Anweisung den Leser täuschen kann ([ADR-14](docs/adr/014-prompt-injection.md)) |
+
 ## Projektstruktur
 
 ```
 backend/app/
-  ingest/      parsers.py, url.py (SSRF-Schutz), chunker.py, guide.py, pipeline.py
+  ingest/      parsers.py, url.py (SSRF-Schutz), chunker.py, guide.py, overview.py, pipeline.py
   retrieval/   embed.py, text_query.py, search.py, rrf.py
-  llm/         provider.py (Mistral | Ollama, Retry), prompts.py
-  routers/     notebooks, sources, chat, notes
-  citations.py Parsing und Validierung der [n]-Marker
-frontend/src/  App.tsx, api.ts, components/ (SourcePanel, ChatPanel, NotesPanel, CitationDrawer, …)
-e2e/           Playwright-Test + Mock-LLM
+  llm/         provider.py (Mistral | Ollama, Retry, Streaming), prompts.py
+  routers/     notebooks, sources, chat (inkl. SSE), notes (inkl. Berichte)
+  citations.py Parsing und Validierung der [n]-Marker, Prüfung auf fehlende Belege
+  reports.py   Briefing und FAQ als Kette belegter Antworten
+backend/scripts/  Retrieval-Evaluation, Prompt-Injection-Prüfung (gegen echte Daten)
+frontend/src/  App.tsx, api.ts, components/ (SourcePanel, SourceGuidePanel, ChatPanel,
+               StudioPanel, TopicMapPanel, CitationDrawer, Dialogs, …)
+e2e/           Playwright-Test, Mock-LLM, Screenshot-Skript
 demo/          Seed-Skript und Demo-Fragen
 docs/adr/      Architekturentscheidungen
 ```

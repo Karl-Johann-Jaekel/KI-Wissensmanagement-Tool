@@ -1,6 +1,7 @@
 import json
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.llm import prompts
@@ -195,3 +196,55 @@ def test_stream_requires_the_access_key(client: TestClient, notebook_id: str) ->
         headers={"X-Access-Key": "wrong"},
     )
     assert response.status_code == 401
+
+
+def test_follow_up_does_not_inherit_the_previous_legal_reference(
+    client: TestClient, notebook_id: str, fake_llm: FakeLLM
+) -> None:
+    """Regression: "Ab wann gilt …?" after "Was regelt Artikel 50?" searched for Artikel 50.
+
+    The previous question used to be prepended to every short question, and the reference
+    ranking — weighted double — then pulled the Artikel 50 passage to the top.
+    """
+    _upload(
+        client,
+        notebook_id,
+        "verordnung.txt",
+        "Artikel 50 Transparenzpflichten\n\nAnbieter informieren Personen über KI-Systeme.",
+    )
+    _upload(
+        client,
+        notebook_id,
+        "geltung.txt",
+        "Geltungsbeginn\n\nDie Verordnung gilt ab dem 2. August 2026.",
+    )
+    fake_llm.answer = "Antwort [1]."
+
+    _chat(client, notebook_id, question="Was regelt Artikel 50?")
+    _chat(client, notebook_id, question="Ab wann gilt die Verordnung?")
+
+    prompt = fake_llm.calls[-1][0][-1]["content"]
+    first = prompt.index("gilt ab dem 2. August 2026")
+    assert "Anbieter informieren" not in prompt[:first], (
+        "the passage that answers the new question must rank before the Artikel 50 passage"
+    )
+
+
+@pytest.mark.parametrize(
+    ("question", "expected"),
+    [
+        ("Und warum?", True),
+        ("Aber was ist mit Anbietern?", True),
+        ("Was bedeutet das?", True),
+        ("Welche Pflichten ergeben sich daraus?", True),
+        ("Gilt das auch für diese Anbieter?", True),
+        ("Ab wann gilt die KI-Verordnung?", False),
+        ("Was regelt Artikel 50?", False),
+        ("Gibt es Sanktionen bei Verstößen?", False),
+        ("Welche Praktiken sind verboten?", False),
+    ],
+)
+def test_follow_up_detection(question: str, expected: bool) -> None:
+    from app.routers.chat import is_follow_up
+
+    assert is_follow_up(question) is expected

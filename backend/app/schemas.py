@@ -2,7 +2,9 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, computed_field
+
+from app.citations import is_grounded
 
 
 class ORMModel(BaseModel):
@@ -88,6 +90,12 @@ class MessageOut(ORMModel):
     content: str
     citations: list[Citation]
     created_at: datetime
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def grounded(self) -> bool:
+        """False for an answer that cites nothing and is not an honest refusal."""
+        return self.role == "user" or is_grounded(self.content, list(self.citations))
 
 
 class ChatResponse(BaseModel):

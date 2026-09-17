@@ -48,6 +48,8 @@ export interface Message {
   role: 'user' | 'assistant'
   content: string
   citations: Citation[]
+  /** False for an answer that cites no passage and is not an honest refusal. */
+  grounded: boolean
   created_at: string
 }
 

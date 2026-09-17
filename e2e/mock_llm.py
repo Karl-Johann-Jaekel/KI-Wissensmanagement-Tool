@@ -47,6 +47,9 @@ def chat_answer(messages: list[dict[str, str]]) -> str:
     question = user.rsplit("Frage:", 1)[-1].strip()
     if "wetter" in question.lower():
         return "Dazu enthalten die Quellen keine Angaben."
+    if "ungeprüft" in question.lower():
+        # stands in for a model talked out of citing by a planted instruction
+        return "Diese Aussage kommt ohne jeden Beleg aus."
     bullets = [f"- {' '.join(text.split()[:18])} [{n}]" for n, text in PASSAGE.findall(user)[:3]]
     return (
         "Die Quellen beschreiben dazu **mehrere Punkte**:\n\n"

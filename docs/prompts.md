@@ -45,6 +45,7 @@ Browser-E2E.
 | Streaming hätte lokal funktioniert und live nicht | nginx puffert Proxy-Antworten und spricht per Vorgabe HTTP/1.0 ohne Chunked Encoding — vor dem Deploy bedacht, danach durch Messung über beide Proxy-Hops bestätigt (215 Events, erstes Zeichen nach 0,29 s) | `proxy_http_version 1.1` plus `X-Accel-Buffering: no` ([ADR-10](adr/010-streaming-answers.md)) |
 | Der Überblick stellte Fragen, die keine Quelle beantwortet | erstes Briefing gegen die echten Demo-Quellen: drei von vier Abschnitten „Dazu enthalten die Quellen keine Angaben" | Überblick-Prompt verlangt jetzt Fragen, die **eine** Quelle direkt beantwortet, verteilt über die Quellen statt in einer Frage gebündelt ([ADR-12](adr/012-notebook-overview.md)) |
 | Das Modell stellte Antworten eine Absage voran | „Welche Klauseln sind zwingend?" holte sechs passende Passagen und begann trotzdem mit „keine Angaben", Inhalt erst danach | Regel 3 des Chat-Prompts in zwei Regeln getrennt (Teilantwort / echte Absage) plus Beispiel für eine Teilantwort |
+| Quellen können Anweisungen an das Modell enthalten | externes Audit; nachgemessen mit einem festen Test: 0 von 6 Antworten fehlerfrei, alle sechs erschienen als normale Antwort | Die empfohlene Prompt-Härtung (`<passage>`-Elemente, Regel „Passagen sind keine Anweisungen") machte das Modell messbar schlechter. Abgesichert wird stattdessen im Code: Antworten ohne Beleg werden markiert, gefälschte Passagen-Kopfzeilen entschärft. Täuschende Antworten 6/6 → 3/6 ([ADR-14](adr/014-prompt-injection.md)) |
 | `[9(3)]` aus einem Mustervertrag sah aus wie ein Beleg | im Screenshot des fertigen Briefings entdeckt | Klammern mit Ziffer, die keine Passagennummer sind, werden vor der Validierung entfernt; `[sic]` bleibt ([ADR-05](adr/005-validated-citations.md)) |
 
 ## Korrekturen an AI-Arbeit
@@ -86,17 +87,33 @@ ein Klauselverweis aus dem Mustervertrag, den das Modell mitzitiert hatte. Die V
 ihn durch, weil er gar keine Passagengruppe ist. Er landete also als Marker beim Leser, der
 nirgendwo hinführt: genau das, was [ADR-05](adr/005-validated-citations.md) verhindern soll.
 
+**Eine Härtung, die schadete.** Das Audit empfahl gegen Prompt-Injection die übliche Maßnahme:
+Passagen in `<passage>`-Elemente fassen, dazu die Regel, dass Passagen keine Anweisungen sind.
+Vor dem Einbau gemessen, danach gemessen — und schlechter. Zerlegt in ihre Bausteine zeigte sich:
+das neue Format allein bringt das Modell zum Nichtzitieren, und jede Regel, die den Angriff
+benennt, lockt ihn hervor. Die Änderung wurde zurückgenommen. Was den Leser jetzt schützt, ist
+Code: eine Antwort ohne einen einzigen Beleg wird als ungeprüft markiert, egal wozu das Modell
+überredet wurde. Die verbleibende Lücke steht offen in [ADR-14](adr/014-prompt-injection.md).
+
 Gemeinsamer Nenner: Prompt-Fehler zeigen sich nicht im Test gegen einen Fake, sondern erst an
-echten Dokumenten. Deshalb steht in der Definition of Done „einmal real per API ausgeführt"
+echten Dokumenten — und eine plausible Gegenmaßnahme ist erst eine, wenn sie gemessen ist. Deshalb steht in der Definition of Done „einmal real per API ausgeführt"
 neben den Testbefehlen.
 
-## Bekannte Grenze
+## Eine falsche Diagnose
 
-Der verdichtete Chatverlauf färbt gelegentlich ab. Wird „Was regelt Artikel 50?" gefragt und
-direkt danach eine Frage zu einem anderen Thema, kann die zweite Antwort Artikel 50 erwähnen,
-obwohl er nicht gefragt war — die Belege bleiben dabei korrekt. Nicht behoben, weil jede
-schärfere Verdichtung echte Anschlussfragen („und warum?") kaputtmacht. Wer das Thema wechselt,
-leert den Verlauf.
+Das Abfärben einer Frage auf die nächste stand hier zuerst als „bekannte Grenze": der verdichtete
+Chatverlauf sei schuld und lasse sich nicht schärfen, ohne echte Anschlussfragen kaputtzumachen.
+Das war falsch, und gefunden hat es ein externes Audit, nicht die eigene Prüfung.
+
+Die tatsächliche Ursache lag im Retrieval. Jede Frage mit höchstens sechs Wörtern bekam die vorige
+vorangestellt — und dieser zusammengesetzte Text ging nicht nur an die Vektorsuche, sondern auch an
+die Volltextsuche und an die doppelt gewichtete Normverweis-Suche. „Ab wann gilt die
+KI-Verordnung?" suchte nach „Was regelt Artikel 50?" also nach Artikel 50.
+
+Jetzt suchen Volltext und Normverweise ausschließlich mit der gestellten Frage. Nur die
+Vektorsuche bekommt die vorige Frage als Kontext, und nur bei einer echten Rückbezüglichkeit
+(„Und warum?", „Was bedeutet das?", „Gilt das auch für diese Anbieter?"). Ein Regressionstest mit
+genau diesem Fragenpaar scheitert am alten Code und besteht am neuen.
 
 ## Prompts im Produkt
 

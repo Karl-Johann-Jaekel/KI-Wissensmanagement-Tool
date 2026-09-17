@@ -5,8 +5,10 @@ source becomes chat-ready before the (slow, rate-limited) guide is generated.
 """
 
 import logging
+import threading
 import uuid
 from collections.abc import Callable
+from functools import lru_cache
 
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
@@ -26,6 +28,19 @@ log = logging.getLogger(__name__)
 GENERIC_ERROR = "Unerwarteter Fehler bei der Verarbeitung."
 
 
+@lru_cache
+def _ingest_slots() -> threading.BoundedSemaphore:
+    """Parsing and embedding hold a whole document in memory at once.
+
+    Measured on the VPS, the 200-page AI Act alone peaked at 1.95 GiB. Two large uploads at the
+    same time would exceed the backend's memory limit and get the process killed, taking every
+    other request with it. Further uploads therefore wait here, visibly still "processing".
+
+    A process-local semaphore is enough because uvicorn runs a single worker in this deployment.
+    """
+    return threading.BoundedSemaphore(get_settings().ingest_concurrency)
+
+
 def ingest_source(
     source_id: uuid.UUID,
     load: Callable[[], ParsedDocument],
@@ -38,13 +53,14 @@ def ingest_source(
         placeholder = initial.title if initial else None
         db.rollback()  # do not hold a transaction open during the slow load/embed steps
         try:
-            document = load()
-            drafts = chunk_segments(
-                document.segments, settings.chunk_max_chars, settings.chunk_overlap_chars
-            )
-            if not drafts:
-                raise ParseError("Die Quelle enthält keinen verwertbaren Text.")
-            vectors = embedder.embed_passages([d.content for d in drafts])
+            with _ingest_slots():
+                document = load()
+                drafts = chunk_segments(
+                    document.segments, settings.chunk_max_chars, settings.chunk_overlap_chars
+                )
+                if not drafts:
+                    raise ParseError("Die Quelle enthält keinen verwertbaren Text.")
+                vectors = embedder.embed_passages([d.content for d in drafts])
 
             source = db.get(Source, source_id)
             if source is None:  # deleted while processing
