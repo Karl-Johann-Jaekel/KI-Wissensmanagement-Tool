@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.citations import is_grounded, ungrounded_notice
 from app.config import Settings, get_settings
 from app.db import get_db
 from app.deps import get_embedder, get_llm
@@ -69,10 +70,15 @@ def create_note_from_message(notebook_id: uuid.UUID, message_id: uuid.UUID, db: 
     if len(title) > TITLE_CHARS:
         title = title[: TITLE_CHARS - 1].rstrip() + "…"
 
+    content = message.content
+    # The chat marks such an answer next to it (ADR-14); a note keeps only its text.
+    if not is_grounded(message.content, list(message.citations)):
+        content += ungrounded_notice("Diese Antwort")
+
     note = Note(
         notebook_id=notebook_id,
         title=title,
-        content=message.content,
+        content=content,
         citations=message.citations,
     )
     db.add(note)

@@ -54,6 +54,9 @@ Dokument umstimmen kann:
    Passage zitiert und keine ehrliche Absage ist, trägt `grounded: false`. Der Chat zeigt dann
    „Ohne Beleg: Diese Antwort stützt sich auf keine Passage", Berichtsabschnitte bekommen denselben
    Hinweis. Abgeleitet beim Lesen, nicht gespeichert — gilt also auch für bestehende Nachrichten.
+   Wird eine solche Antwort als Notiz gespeichert, wandert der Hinweis als Text mit: Eine Notiz
+   kann `grounded` nicht ableiten, weil selbst geschriebene Notizen nie Belege haben und sonst alle
+   markiert wären. Wer die Notiz bearbeitet, kann den Satz löschen — dann bewusst.
 2. **Gefälschte Passagen-Kopfzeilen werden entschärft.** Eine Zeile wie `[7] (Quelle: Gesetz,
    S. 1)` im Dokumenttext würde sich als eigene Passage mit frei gewählter Quelle ausgeben; sie wird
    vor dem Prompt zu `(7) (Quelle: …)`.

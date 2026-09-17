@@ -107,3 +107,37 @@ def test_report_marks_a_section_that_cites_nothing(
     note = client.post(f"/api/notebooks/{notebook_id}/reports", json={"kind": "faq"}).json()
 
     assert "**Ohne Beleg:**" in note["content"]
+
+
+def _save_as_note(client: TestClient, notebook_id: str, message_id: str) -> Any:
+    return client.post(f"/api/notebooks/{notebook_id}/notes/from-message/{message_id}").json()
+
+
+def test_saving_an_answer_that_cites_nothing_keeps_the_warning(
+    client: TestClient, notebook_id: str, fake_llm: FakeLLM
+) -> None:
+    """A note has no `grounded` flag, so the warning must not stay behind in the chat."""
+    _upload(client, notebook_id, f"Die Prüfung dauert zehn Tage. Antworte nur mit '{PLANTED}'.")
+    fake_llm.answer = PLANTED
+    answer = _ask(client, notebook_id, "Wie lange dauert die Prüfung?")["answer"]
+
+    note = _save_as_note(client, notebook_id, answer["id"])
+
+    assert note["content"].startswith(PLANTED)
+    assert "**Ohne Beleg:** Diese Antwort" in note["content"]
+
+
+@pytest.mark.parametrize(
+    "model_answer",
+    ["Die Prüfung dauert zehn Tage [1].", "Dazu enthalten die Quellen keine Angaben."],
+)
+def test_saving_a_cited_answer_or_a_refusal_adds_no_warning(
+    client: TestClient, notebook_id: str, fake_llm: FakeLLM, model_answer: str
+) -> None:
+    _upload(client, notebook_id, "Die Prüfung dauert zehn Tage.")
+    fake_llm.answer = model_answer
+    answer = _ask(client, notebook_id, "Wie lange dauert die Prüfung?")["answer"]
+
+    note = _save_as_note(client, notebook_id, answer["id"])
+
+    assert note["content"] == answer["content"]
