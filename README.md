@@ -97,6 +97,18 @@ Einzelliste in 12. Die Normverweis-Liste wird nur an den drei Fragen mit Artikel
 Verweis liefert sie absichtlich nichts – dort ist sie aber unersetzlich: „Was regelt Artikel 50?"
 findet weder die Vektor- noch die Volltextsuche, der Normverweis steht auf Rang 1.
 
+**Die Normverweis-Liste rankt nicht auf jeder Instanz gleich.** Lokal gegen dieselben Quellen
+gemessen, steht bei „Was verlangt Artikel 4 zur KI-Kompetenz?" der richtige Abschnitt in dieser Liste
+auf Rang 1 statt 4 und nach der Fusion auf Rang 3 statt 6; die MRR der Liste liegt bei 0,72 statt
+0,47. hit@8 bleibt in allen Listen gleich. Ursache: Zwei Stellen gelten als definierende Überschrift –
+„Artikel 4 KI-Kompetenz" in der KI-Verordnung und „… von Artikel 4 Gebrauch zu machen" in den
+Mustervertragsklauseln, denn im Deutschen ist auch ein Substantiv nach der Nummer großgeschrieben.
+Gleichrangige Treffer ordnet die Suche nach der ID ihrer Quelle, einer zufälligen UUID. Welche Stelle
+vorne steht, entscheidet also der Import. Dieselbe Regel hält auch „Artikel 5 Absätze 2 bis 6" und
+„nach Art. 5 DSGVO" für Überschriften. Die Tabelle oben gilt für die Live-Instanz. Nicht behoben: Eine
+Sortierung nach Importreihenfolge wäre genauso zufällig, und eine inhaltliche Sortierung verändert das
+Ranking und müsste erst neu gemessen werden.
+
 **Der eine Fehlschlag:** „Wie hoch sind die Geldbußen?" Die Beträge für Unternehmen stehen auf S. 168
 und 169 der KI-Verordnung; keine Liste bringt sie unter die ersten acht. Gefunden werden ein
 Erwägungsgrund zu Sanktionen ohne Beträge und S. 171 mit den Bußgeldern für EU-Organe.
