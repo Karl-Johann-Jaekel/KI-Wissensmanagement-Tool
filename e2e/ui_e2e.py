@@ -186,6 +186,10 @@ with sync_playwright() as p:
     expect(topics).to_be_visible()
     expect(topics.get_by_role("button", name="Transformer", exact=True)).to_be_visible()
     page.screenshot(path=OUT / "08-topics.png")
+    # at a laptop width the whole map fits the main column, no sideways scrolling
+    overflow = topics.locator("div.overflow-auto").evaluate("el => el.scrollWidth - el.clientWidth")
+    assert overflow <= 0, f"topic map is {overflow}px wider than the main column"
+
     topics.get_by_role("button", name="Self-Attention", exact=True).click()
     # asking from the map returns to the chat and sends the question
     expect(topics).to_be_hidden()
