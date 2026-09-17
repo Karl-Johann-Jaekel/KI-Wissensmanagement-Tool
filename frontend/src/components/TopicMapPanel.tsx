@@ -11,11 +11,15 @@ import { CloseIcon, FileIcon, LinkIcon, SparkIcon } from './Icons'
 // chip gets two lines and the row height follows.
 const ROW = 54 // height reserved per topic
 const GROUP_GAP = 18 // extra space between two sources
-const NOTEBOOK_X = 0
-const SOURCE_X = 232
-const TOPIC_X = 470
-const TOPIC_WIDTH = 300
+// Columns sized to the main column at 1440 px (about 680 px usable): the map should read
+// without scrolling sideways on a laptop. Narrower windows still get a horizontal scrollbar.
+const NOTEBOOK_WIDTH = 130
+const SOURCE_X = 162
+const SOURCE_WIDTH = 176
+const TOPIC_X = 380
+const TOPIC_WIDTH = 290
 const WIDTH = TOPIC_X + TOPIC_WIDTH
+const LINK_GAP = 4 // curves end just short of the box they lead into
 
 interface Props {
   notebook: Notebook | undefined
@@ -88,7 +92,7 @@ export function TopicMapPanel({
               {placed.map(({ source, topics, y }) => (
                 <g key={source.id}>
                   <path
-                    d={curve(NOTEBOOK_X + 150, notebookY, SOURCE_X - 6, y)}
+                    d={curve(NOTEBOOK_WIDTH, notebookY, SOURCE_X - LINK_GAP, y)}
                     fill="none"
                     stroke="currentColor"
                     strokeWidth={1.5}
@@ -96,7 +100,7 @@ export function TopicMapPanel({
                   {topics.map(({ topic, y: ty }) => (
                     <path
                       key={topic}
-                      d={curve(SOURCE_X + 210, y, TOPIC_X - 6, ty)}
+                      d={curve(SOURCE_X + SOURCE_WIDTH, y, TOPIC_X - LINK_GAP, ty)}
                       fill="none"
                       stroke="currentColor"
                       strokeWidth={1.5}
@@ -107,8 +111,8 @@ export function TopicMapPanel({
             </svg>
 
             <div
-              className="absolute flex w-[150px] -translate-y-1/2 items-center justify-center rounded-2xl bg-accent px-3 py-2 text-center text-xs font-medium text-accent-fg"
-              style={{ left: NOTEBOOK_X, top: notebookY }}
+              className="absolute flex -translate-y-1/2 items-center justify-center rounded-2xl bg-accent px-3 py-2 text-center text-xs font-medium text-accent-fg"
+              style={{ left: 0, top: notebookY, width: NOTEBOOK_WIDTH }}
             >
               <span className="line-clamp-3">{notebook?.title ?? 'Notebook'}</span>
             </div>
@@ -118,8 +122,8 @@ export function TopicMapPanel({
               return (
                 <div key={source.id}>
                   <button
-                    className="absolute flex w-[210px] -translate-y-1/2 items-center gap-2 rounded-xl border border-line bg-surface px-3 py-2 text-left text-xs hover:border-accent"
-                    style={{ left: SOURCE_X, top: y }}
+                    className="absolute flex -translate-y-1/2 items-center gap-2 rounded-xl border border-line bg-surface px-3 py-2 text-left text-xs hover:border-accent"
+                    style={{ left: SOURCE_X, top: y, width: SOURCE_WIDTH }}
                     onClick={() => onOpenSource(source.id)}
                     title={source.title}
                   >
