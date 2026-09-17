@@ -18,7 +18,7 @@ from typing import Literal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.citations import is_grounded
+from app.citations import is_grounded, ungrounded_notice
 from app.config import Settings
 from app.llm import prompts
 from app.llm.provider import LLMProvider
@@ -35,10 +35,6 @@ TITLE_CHARS = 300
 # A report section stands on its own, without a follow-up question to fill gaps, so it gets
 # more passages to work with than a chat turn.
 PASSAGE_FACTOR = 2
-UNGROUNDED_NOTE = (
-    "\n\n**Ohne Beleg:** Dieser Abschnitt stützt sich auf keine Passage und ist nicht aus den "
-    "Quellen geprüft."
-)
 _MARKER = re.compile(r"\[(\d+)\]")
 
 
@@ -89,7 +85,7 @@ def build_report(
         answer, found = validate_answer(raw, passages)
         section = _renumber(answer, found, citations, numbers)
         if not is_grounded(answer, list(found)):
-            section += UNGROUNDED_NOTE
+            section += ungrounded_notice("Dieser Abschnitt")
         parts.append(f"## {question}\n\n{section}")
 
     if len(parts) == 1:

@@ -57,6 +57,13 @@ Die Entscheidung trägt: die Fusion schlägt die beste Einzelliste um 23 Prozent
 Volltextsuche ist allein die schwächste Liste, rettet aber zwei Fragen, an denen die Vektorsuche
 scheitert. Offener Fehlschlag: die Bußgeldbeträge (S. 168/169) erreicht keine Liste.
 
+Die Normverweis-Liste hängt von der Instanz ab: lokal liegt ihre MRR bei 0,72 statt 0,47. Die
+Überschriften-Erkennung hält jedes großgeschriebene Wort nach der Nummer für einen Titel, im Deutschen
+also auch Substantive („von Artikel 4 Gebrauch zu machen"). Gibt es mehrere solche Treffer, entscheidet
+die zufällige UUID der Quelle über die Reihenfolge. Details im
+[README](../../README.md#retrieval-qualität); bewusst nicht vor der Abgabe umgebaut, weil jede
+inhaltliche Sortierung neu gemessen werden müsste.
+
 ## Verworfene Alternativen
 
 - Nur Vektorsuche: schwach bei Eigennamen und Codes.

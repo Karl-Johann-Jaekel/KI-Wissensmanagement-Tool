@@ -137,6 +137,18 @@ def is_grounded(answer: str, citations: list[object]) -> bool:
     return bool(citations) or is_refusal(answer)
 
 
+def ungrounded_notice(subject: str) -> str:
+    """The warning for text that keeps an ungrounded answer: a report section, a saved note.
+
+    The chat derives `grounded` when it shows a message. A note cannot: hand-written notes never
+    have citations and would all be flagged, so the warning travels inside the text instead.
+    """
+    return (
+        f"\n\n**Ohne Beleg:** {subject} stützt sich auf keine Passage und ist nicht aus den "
+        "Quellen geprüft."
+    )
+
+
 def strip_citations(text: str) -> str:
     """Remove all markers, e.g. for chat history sent back to the model."""
     return _MULTI_SPACE.sub(" ", _SPACE_BEFORE_PUNCT.sub(r"\1", _GROUP.sub("", text))).strip()
