@@ -52,7 +52,7 @@ flowchart LR
   N --> A[FastAPI]
   A --> P[(Postgres 17<br/>pgvector + Volltext)]
   A --> E[fastembed<br/>multilingual-e5-small, CPU]
-  A --> L[LLM-Provider<br/>Mistral | Ollama]
+  A --> L["LLM-Provider<br/>Mistral | Ollama"]
 ```
 
 **Ingestion** (Hintergrundjob): Parsen (pypdf / trafilatura) → Chunking an Absatzgrenzen, nie über
