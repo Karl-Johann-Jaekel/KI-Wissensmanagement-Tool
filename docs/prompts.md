@@ -8,10 +8,10 @@ Rückfragen die Architektur geprägt haben und wo die Umsetzung vom Plan abwich.
 
 | Schritt | Mensch | AI |
 |---|---|---|
-| Planung | Aufgabe interpretiert, Scope, Stack und 7 ADRs in `plan.md` festgelegt | – |
-| Start | Prompt: *„Bitte hilf mir, diesen Plan in diesem Repo in die Tat umzusetzen.“* (plus Aufgabentext und `plan.md`) | Rückfragen gestellt, bevor Code entstand |
-| Umsetzung | Entscheidungen beantwortet, Zwischenstände geprüft | Code, Tests, Commits pro Schritt |
-| Verifikation | – | nach jedem Schritt `pytest`, `ruff`, `mypy`, Build; reale Läufe mit echtem PDF und Browser |
+| Planung | Aufgabe interpretiert, im Interview mit Fable 5 Kernfeatures und Scope geschärft, Entscheidungen getroffen | **Fable 5**: Interview geführt, Optionen gegenübergestellt, Stack und 7 ADRs in `plan.md` ausformuliert |
+| Start | Repo auf GitHub angelegt und lokal aufgesetzt, dann Plan und Aufgabentext übergeben: *„Bitte hilf mir, diesen Plan in diesem Repo in die Tat umzusetzen.“* | **Opus 5** in Claude Code: Rückfragen zu Scope, Commit-Strategie und Keys gestellt, bevor Code entstand |
+| Umsetzung | Rückfragen beantwortet, Zwischenstände geprüft, Merges freigegeben | Code, Tests, ein Commit pro verifiziertem Schritt |
+| Verifikation | Antworten der App gegen die Quell-PDFs geprüft, UI kritisch mit NotebookLM verglichen, Deployments freigegeben | nach jedem Schritt `pytest`, `ruff`, `mypy`, Build; reale Läufe mit echtem PDF und Browser |
 
 ## Rückfragen vor dem ersten Commit
 
